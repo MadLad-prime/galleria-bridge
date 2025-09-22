@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Momentum | Daily Task Tracker</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/1a1a2e/ffffff?text=M">
+
+    <style>
+        /* Custom Styles & Animations */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; /* Disable tap highlight on mobile */
+        }
+
+        .task-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: top;
+        }
+        
+        .task-card.completed {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+
+        .task-card.completed .task-title {
+            text-decoration: line-through;
+            text-decoration-color: rgba(129, 140, 248, 0.6);
+        }
+
+        .progress-bar-inner {
+            transition: width 0.5s ease-in-out;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .day-nav-item.active {
+             background-color: #4f46e5;
+             color: #ffffff;
+        }
+
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e1e3f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4f46e5;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6366f1;
+        }
+    </style>
+</head>
+<body class="bg-[#10101a] text-gray-200 antialiased">
+
+    <div id="app" class="min-h-screen max-w-lg mx-auto flex flex-col p-4 md:p-6">
+        
+        <!-- Header -->
+        <header class="fade-in mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 id="current-date" class="font-bold text-2xl tracking-tight text-white"></h1>
+                    <p id="greeting" class="text-indigo-300 font-medium"></p>
+                </div>
+                 <div class="text-right">
+                    <p class="font-semibold text-lg text-white">Momentum</p>
+                    <p id="motivational-quote" class="text-xs text-gray-400 italic mt-1"></p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow">
+             <!-- Progress Bar -->
+            <div class="mb-6 fade-in" style="animation-delay: 100ms;">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-medium text-gray-300">Daily Progress</span>
+                    <span id="progress-text" class="text-sm font-medium text-indigo-300">0%</span>
+                </div>
+                <div class="w-full bg-[#1e1e3f] rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Tasks List -->
+            <div id="task-list" class="space-y-3">
+                <!-- Tasks will be injected here by JavaScript -->
+            </div>
+        </main>
+
+        <!-- Footer Navigation -->
+        <footer class="sticky bottom-0 left-0 right-0 py-2 mt-6 bg-[#10101a]/80 backdrop-blur-sm rounded-t-2xl">
+            <nav id="day-navigation" class="flex justify-around items-center max-w-lg mx-auto bg-[#1e1e3f] rounded-full p-2 shadow-lg">
+                <!-- Navigation items will be injected here -->
+            </nav>
+        </footer>
+    </div>
+
+    <!-- Service worker is registered here: 'sw.js' (relative to this HTML file - place sw.js next to index.html or update the path) -->
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('ServiceWorker registration successful with scope: ', registration.scope))
+                    .catch(error => console.log('ServiceWorker registration failed: ', error));
+            });
+        }
+    </script>
+    
+    <!-- Inline Manifest for simplicity, normally in manifest.json -->
+    <script type="application/json" id="manifest">
+    {
+      "name": "Momentum: Daily Task Tracker",
+      "short_name": "Momentum",
+      "start_url": ".",
+      "display": "standalone",
+      "background_color": "#10101a",
+      "theme_color": "#1a1a2e",
+      "description": "A sleek and modern PWA to track your daily tasks and build momentum.",
+      "icons": [
+        {
+          "src": "https://placehold.co/192x192/1a1a2e/ffffff?text=M",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "https://placehold.co/512x512/1a1a2e/ffffff?text=M",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
+    </script>
+    
+    <!-- Main Application Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = {
+                // --- DATA ---
+                tasksData: {
+                    monday: [
+                        { category: 'Stroud', title: 'Vector Analysis Part 1 + multiple integrals part 1', duration: '4h', completed: false },
+                        { category: 'RNEO', title: 'Bayes decision theory + steve brunton data science intro vids', duration: '4h', completed: false },
+                        { category: 'Web Dev', title: 'Work on nunofy + nazlin (finish up)', duration: '4h', completed: false }
+                    ],
+                    tuesday: [
+                        { category: 'Stroud', title: 'Multiple Integrals Part 2 + vector Analysis part 2', duration: '4h', completed: false },
+                        { category: 'Arduino', title: 'Bluetooth prototype, wiring + code test', duration: '4h', completed: false },
+                        { category: 'Web Dev', title: 'Client research, lead organization, demo prep', duration: '4h', completed: false }
+                    ],
+                    wednesday: [
+                        { category: 'Stroud', title: 'Vector Analysis part 3', duration: '4h', completed: false },
+                        { category: 'RNEO', title: 'Microeconomic models + PR', duration: '4h', completed: false },
+                        { category: 'Web Dev', title: 'Client outreach', duration: '4h', completed: false }
+                    ],
+                    thursday: [
+                        { category: 'Stroud', title: 'Partial Derivatives + Matrix Algebra review', duration: '4h', completed: false },
+                        { category: 'Arduino', title: 'Finish comms tests, phone ↔ Arduino data', duration: '4h', completed: false },
+                        { category: 'Polymachina', title: 'FPGA, modular self-reconfiguring robotics', duration: '4h', completed: false }
+                    ],
+                    friday: [
+                        { category: 'Stroud', title: 'Integral Functions + Theory of Equations review', duration: '4h', completed: false },
+                        { category: 'RNEO', title: 'Consolidate probabilistic models + python implementation', duration: '4h', completed: false },
+                        { category: 'Web Dev', title: 'Client outreach', duration: '4h', completed: false }
+                    ],
+                    saturday: [
+                        { category: 'Stroud', title: 'Further problems for all chapters covered', duration: '4h', completed: false },
+                        { category: 'Polymachina', title: 'Read reconfigurable computing + analog VLSI books', duration: '2h', completed: false },
+                        { category: 'Web Dev', title: 'Client outreach', duration: '4h', completed: false }
+                    ],
+                    sunday: [
+                        { category: 'Admin', title: 'Immigration + uni research', duration: '2h', completed: false },
+                        { category: 'Reading', title: 'Read Solaris', duration: '2h', completed: false },
+                        { category: 'Polymachina', title: 'Brainstorming and freeform ideation', duration: '2h', completed: false }
+                    ]
+                },
+
+                quotes: [
+                    "The secret of getting ahead is getting started.",
+                    "Discipline is the bridge between goals and accomplishment.",
+                    "Well done is better than well said.",
+                    "A year from now you may wish you had started today.",
+                    "The future depends on what you do today."
+                ],
+
+                state: {
+                    currentDay: 'monday'
+                },
+
+                // --- DOM ELEMENTS ---
+                elements: {
+                    taskList: document.getElementById('task-list'),
+                    dayNavigation: document.getElementById('day-navigation'),
+                    currentDate: document.getElementById('current-date'),
+                    greeting: document.getElementById('greeting'),
+                    motivationalQuote: document.getElementById('motivational-quote'),
+                    progressBar: document.getElementById('progress-bar'),
+                    progressText: document.getElementById('progress-text'),
+                },
+                
+                // --- METHODS ---
+                init() {
+                    this.loadState();
+                    this.setCurrentDay();
+                    this.updateHeader();
+                    this.renderDayNavigation();
+                    this.renderTasks();
+                    this.addNavEventListeners();
+                },
+
+                setCurrentDay() {
+                    const dayIndex = new Date().getDay();
+                    // Sunday is 0, Monday is 1, etc. Adjust for our data structure.
+                    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    this.state.currentDay = days[dayIndex];
+                },
+                
+                loadState() {
+                    const savedTasks = localStorage.getItem('momentumTasks');
+                    if (savedTasks) {
+                        this.tasksData = JSON.parse(savedTasks);
+                    }
+                },
+
+                saveState() {
+                    localStorage.setItem('momentumTasks', JSON.stringify(this.tasksData));
+                },
+
+                updateHeader() {
+                    const now = new Date();
+                    this.elements.currentDate.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+                    
+                    const hour = now.getHours();
+                    let greetingText = 'Good Evening';
+                    if (hour < 12) greetingText = 'Good Morning';
+                    else if (hour < 18) greetingText = 'Good Afternoon';
+                    this.elements.greeting.textContent = greetingText;
+
+                    const randomQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
+                    this.elements.motivationalQuote.textContent = `"${randomQuote}"`;
+                },
+
+                renderDayNavigation() {
+                    const days = Object.keys(this.tasksData);
+                    this.elements.dayNavigation.innerHTML = days.map(day => `
+                        <button data-day="${day}" class="day-nav-item w-10 h-10 flex items-center justify-center rounded-full font-semibold transition-all duration-300 ${this.state.currentDay === day ? 'active' : 'text-gray-400 hover:bg-indigo-500/20'}">
+                            ${day.charAt(0).toUpperCase()}
+                        </button>
+                    `).join('');
+                },
+
+                renderTasks() {
+                    this.elements.taskList.innerHTML = '';
+                    const tasks = this.tasksData[this.state.currentDay];
+                    if (!tasks || tasks.length === 0) {
+                        this.elements.taskList.innerHTML = `<p class="text-center text-gray-400">No tasks for today. Enjoy your break!</p>`;
+                        this.updateProgress();
+                        return;
+                    }
+
+                    tasks.forEach((task, index) => {
+                        const taskElement = document.createElement('div');
+                        taskElement.className = `task-card flex items-center p-4 rounded-2xl bg-[#1e1e3f] shadow-md cursor-pointer fade-in ${task.completed ? 'completed' : ''}`;
+                        taskElement.style.animationDelay = `${index * 75}ms`;
+                        taskElement.dataset.taskIndex = index;
+                        
+                        taskElement.innerHTML = `
+                            <div class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 mr-4">
+                                <span class="font-bold text-white text-sm">${task.duration}</span>
+                            </div>
+                            <div class="flex-grow">
+                                <p class="font-semibold text-indigo-300 text-xs uppercase tracking-wider">${task.category}</p>
+                                <p class="task-title text-white font-medium">${task.title}</p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border-2 ${task.completed ? 'bg-indigo-500 border-indigo-500' : 'border-gray-600'} transition-all duration-300">
+                                ${task.completed ? '<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                            </div>
+                        `;
+                        
+                        taskElement.addEventListener('click', () => this.toggleTaskCompletion(index));
+                        this.elements.taskList.appendChild(taskElement);
+                    });
+                    
+                    this.updateProgress();
+                },
+                
+                toggleTaskCompletion(index) {
+                    const task = this.tasksData[this.state.currentDay][index];
+                    task.completed = !task.completed;
+                    
+                    const taskCard = this.elements.taskList.querySelector(`[data-task-index='${index}']`);
+                    taskCard.classList.toggle('completed');
+
+                    const checkmarkContainer = taskCard.querySelector('.border-2');
+                    checkmarkContainer.classList.toggle('bg-indigo-500');
+                    checkmarkContainer.classList.toggle('border-indigo-500');
+                    checkmarkContainer.classList.toggle('border-gray-600');
+                    
+                    if (task.completed) {
+                        checkmarkContainer.innerHTML = '<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                    } else {
+                        checkmarkContainer.innerHTML = '';
+                    }
+
+                    this.updateProgress();
+                    this.saveState();
+                },
+
+                updateProgress() {
+                    const tasks = this.tasksData[this.state.currentDay];
+                    const completedTasks = tasks.filter(task => task.completed).length;
+                    const totalTasks = tasks.length;
+                    const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+                    
+                    this.elements.progressBar.style.width = `${percentage}%`;
+                    this.elements.progressText.textContent = `${Math.round(percentage)}% Complete`;
+                },
+
+                addNavEventListeners() {
+                    this.elements.dayNavigation.addEventListener('click', (e) => {
+                        const target = e.target.closest('.day-nav-item');
+                        if (target && target.dataset.day) {
+                            this.state.currentDay = target.dataset.day;
+
+                            // Update active state on nav buttons
+                            document.querySelectorAll('.day-nav-item').forEach(btn => btn.classList.remove('active', 'text-white'));
+                            target.classList.add('active', 'text-white');
+                            document.querySelectorAll('.day-nav-item:not(.active)').forEach(btn => btn.classList.add('text-gray-400'));
+
+
+                            this.renderTasks();
+                        }
+                    });
+                }
+            };
+
+            app.init();
+        });
+    </script>
+</body>
+</html>
