@@ -3,603 +3,1382 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Momentum | Task Tracker</title>
-    
-    <!-- Tailwind CSS -->
+    <title>SINGULARITY // ORBITAL ARCHIVE [0x88F]</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google Fonts: Inter -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- Web App Manifest -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1a1a2e">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/1a1a2e/ffffff?text=M">
-
-    <!-- Feather Icons -->
-    <script src="https://unpkg.com/feather-icons"></script>
-
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Custom Styles & Animations */
-        body {
-            font-family: 'Inter', sans-serif;
-            -webkit-tap-highlight-color: transparent; /* Disable tap highlight on mobile */
+        :root {
+            --hud-color: rgba(244, 244, 246, 0.85);
+            --hud-dim: rgba(244, 244, 246, 0.38);
+            --hud-border: rgba(244, 244, 246, 0.18);
+            --hud-bg: rgba(8, 8, 12, 0.65);
+            --accent: #00f0ff;
         }
-
-        .task-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            transform-origin: top;
+        body.polarity-white {
+            --hud-color: rgba(12, 12, 16, 0.88);
+            --hud-dim: rgba(12, 12, 16, 0.45);
+            --hud-border: rgba(12, 12, 16, 0.22);
+            --hud-bg: rgba(244, 244, 246, 0.70);
+            --accent: #ff0055;
         }
-        
-        .task-card.completed {
-            opacity: 0.6;
-            transform: scale(0.98);
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
         }
-
-        .task-card.completed .task-title {
-            text-decoration: line-through;
-            text-decoration-color: rgba(129, 140, 248, 0.6);
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030305;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--hud-color);
+            transition: color 0.4s ease;
         }
-        
-        .subtask.completed .subtask-title {
-            text-decoration: line-through;
-            text-decoration-color: rgba(167, 139, 250, 0.7);
+        #webgl-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
         }
-
-        .progress-bar-inner {
-            transition: width 0.5s ease-in-out;
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
         }
-
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out forwards;
+        .hud-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1.25rem;
         }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .hud-panel {
+            background: var(--hud-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--hud-border);
+            transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
         }
-
-        .modal-backdrop {
-            transition: opacity 0.3s ease-in-out;
+        .hud-interactive {
+            pointer-events: auto;
         }
-        .modal-content {
-            transition: all 0.3s ease-in-out;
-            transform: translateY(20px);
+        .hud-btn {
+            background: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            color: var(--hud-color);
+            padding: 0.45rem 0.85rem;
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
         }
-        .modal-container.visible .modal-backdrop {
-            opacity: 1;
+        .hud-btn:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+            transform: translateY(-1px);
         }
-        .modal-container.visible .modal-content {
-            opacity: 1;
-            transform: translateY(0);
+        .hud-btn:active {
+            transform: translateY(0px);
         }
-
-        /* Custom scrollbar for better aesthetics */
-        ::-webkit-scrollbar {
+        .hud-btn-active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 240, 255, 0.12);
+        }
+        .corner-bracket {
+            position: relative;
+        }
+        .corner-bracket::before,
+        .corner-bracket::after {
+            content: '';
+            position: absolute;
             width: 6px;
+            height: 6px;
+            border-color: var(--hud-color);
+            pointer-events: none;
         }
-        ::-webkit-scrollbar-track {
-            background: #1e1e3f;
+        .corner-bracket::before {
+            top: -1px;
+            left: -1px;
+            border-top: 1.5px solid var(--hud-color);
+            border-left: 1.5px solid var(--hud-color);
         }
-        ::-webkit-scrollbar-thumb {
-            background: #4f46e5;
-            border-radius: 10px;
+        .corner-bracket::after {
+            bottom: -1px;
+            right: -1px;
+            border-bottom: 1.5px solid var(--hud-color);
+            border-right: 1.5px solid var(--hud-color);
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #6366f1;
-        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.5); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.3); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
     </style>
 </head>
-<body class="bg-[#10101a] text-gray-200 antialiased">
+<body>
 
-    <div id="app" class="min-h-screen max-w-lg mx-auto flex flex-col p-4 md:p-6 relative">
-        
-        <!-- Header -->
-        <header class="fade-in mb-4">
-            <div class="flex justify-between items-center mb-4">
-                <div>
-                    <h1 id="current-date" class="font-bold text-2xl tracking-tight text-white"></h1>
-                    <p id="greeting" class="text-indigo-300 font-medium"></p>
-                </div>
-                <div class="text-right">
-                    <p class="font-semibold text-lg text-white">Momentum</p>
-                    <p id="motivational-quote" class="text-xs text-gray-400 italic mt-1"></p>
-                </div>
+    <!-- 3D WebGL Viewport -->
+    <div id="webgl-container"></div>
+
+    <!-- Minimalist Media Gallery HUD Layer -->
+    <div class="hud-layer">
+        <!-- Top Navigation Bar -->
+        <header class="flex justify-between items-center gap-4">
+            <div class="hud-panel corner-bracket px-4 py-2 rounded-sm flex items-center gap-3">
+                <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                <span class="text-xs font-bold tracking-[0.2em] uppercase text-white">GALLERIA // ORBITAL ARCHIVE</span>
+                <span id="hud-card-count" class="text-[10px] text-white/50 font-mono"></span>
             </div>
-             <button id="clear-all-btn" class="w-full text-sm bg-red-800/20 text-red-300 hover:bg-red-800/50 rounded-lg px-4 py-2 transition-all duration-300 flex items-center justify-center space-x-2">
-                <i data-feather="trash-2" class="w-4 h-4"></i>
-                <span>Clear All Tasks</span>
-            </button>
+
+            <!-- Top Controls -->
+            <div class="flex items-center gap-2 hud-interactive">
+                <button id="btn-toggle-directory" class="hud-btn rounded-sm font-semibold text-xs" title="Open Media Directory">
+                    <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    <span>[ MEDIA DIRECTORY ]</span>
+                </button>
+                <button id="btn-reset-orbits" class="hud-btn rounded-sm font-semibold text-xs" title="Release any focused media back into orbit">
+                    [ RELEASE FOCUS ]
+                </button>
+                <a href="admin.html" class="hud-btn hud-btn-primary rounded-sm font-semibold text-xs" title="Open Admin Upload & Management Station">
+                    [ ADMIN ]
+                </a>
+            </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="flex-grow pb-20">
-            <!-- Progress Bar -->
-            <div class="mb-4 fade-in" style="animation-delay: 100ms;">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-sm font-medium text-gray-300">Total Progress</span>
-                    <span id="progress-text" class="text-sm font-medium text-indigo-300">0%</span>
-                </div>
-                <div class="w-full bg-[#1e1e3f] rounded-full h-2.5">
-                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-2.5 rounded-full progress-bar-inner" style="width: 0%"></div>
-                </div>
-            </div>
-            
-            <!-- Filters -->
-            <div id="filter-container" class="mb-4 flex flex-wrap gap-2 fade-in" style="animation-delay: 200ms;">
-                <!-- Filter buttons will be injected here -->
-            </div>
-            
-            <!-- Tasks List -->
-            <div id="task-list" class="space-y-3">
-                <!-- Tasks will be injected here by JavaScript -->
-            </div>
-        </main>
-
-        <!-- Add Task FAB -->
-        <button id="add-task-fab" class="fixed bottom-6 right-6 bg-gradient-to-br from-indigo-500 to-purple-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg transform transition-transform hover:scale-110">
-            <i data-feather="plus" class="w-7 h-7"></i>
-        </button>
-
-        <!-- Modals -->
-
-        <!-- Add Task Modal -->
-        <div id="add-task-modal" class="modal-container fixed inset-0 z-50 flex items-center justify-center p-4 invisible">
-            <div class="modal-backdrop fixed inset-0 bg-black/70 opacity-0"></div>
-            <div class="modal-content bg-[#1e1e3f] rounded-2xl shadow-xl w-full max-w-sm p-6 opacity-0">
-                <h2 class="text-xl font-bold text-white mb-4">Add New Task</h2>
-                <form id="add-task-form">
-                    <div class="mb-4">
-                        <label for="task-title" class="block text-sm font-medium text-indigo-300 mb-1">Title</label>
-                        <input type="text" id="task-title" name="title" class="w-full bg-[#10101a] text-white border-2 border-gray-700 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none transition-colors" required>
+        <!-- Focused Media Placard (Center / Bottom) -->
+        <div class="flex justify-center items-end my-auto pointer-events-none pb-4">
+            <div id="card-telemetry" class="hud-panel corner-bracket p-5 rounded-sm w-full max-w-lg transition-all duration-300 opacity-0 translate-y-4 pointer-events-auto shadow-2xl backdrop-blur-xl">
+                <div class="flex justify-between items-start gap-4 mb-2">
+                    <div class="space-y-0.5 overflow-hidden">
+                        <div class="flex items-center gap-2">
+                            <h2 id="card-title" class="text-base font-bold text-white tracking-wider truncate">UNTITLED</h2>
+                            <span id="card-type" class="text-[8px] px-1.5 py-0.5 border border-cyan-400/40 text-cyan-400 rounded-sm font-bold uppercase tracking-wider"></span>
+                        </div>
+                        <div id="card-id" class="text-[10px] text-cyan-400/70 font-mono"></div>
                     </div>
-                    <div class="mb-6">
-                        <label for="task-category" class="block text-sm font-medium text-indigo-300 mb-1">Category</label>
-                        <input type="text" id="task-category" name="category" class="w-full bg-[#10101a] text-white border-2 border-gray-700 rounded-lg px-3 py-2 focus:border-indigo-500 focus:outline-none transition-colors" placeholder="e.g., Web Dev, Math">
-                    </div>
-                    <div class="flex justify-end gap-3">
-                        <button type="button" class="modal-close-btn px-4 py-2 rounded-lg bg-gray-700/50 text-gray-300 hover:bg-gray-700 transition-colors">Cancel</button>
-                        <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-500 transition-colors">Add Task</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <!-- Clear All Confirmation Modal -->
-        <div id="clear-all-modal" class="modal-container fixed inset-0 z-50 flex items-center justify-center p-4 invisible">
-            <div class="modal-backdrop fixed inset-0 bg-black/70 opacity-0"></div>
-            <div class="modal-content bg-[#1e1e3f] rounded-2xl shadow-xl w-full max-w-sm p-6 opacity-0">
-                <h2 class="text-xl font-bold text-red-400 mb-2">Are you sure?</h2>
-                <p class="text-gray-300 mb-6">This will permanently delete all tasks. This action cannot be undone.</p>
-                <div class="flex justify-end gap-3">
-                    <button type="button" class="modal-close-btn px-4 py-2 rounded-lg bg-gray-700/50 text-gray-300 hover:bg-gray-700 transition-colors">Cancel</button>
-                    <button id="confirm-clear-btn" type="button" class="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-500 transition-colors">Clear All</button>
+                    <span id="card-action-hint" class="text-[9px] px-2 py-1 border border-cyan-400/50 text-cyan-400 rounded-sm font-bold tracking-wider uppercase flex-shrink-0">
+                        CLICK TO FOCUS
+                    </span>
                 </div>
+                <p id="card-desc" class="text-xs text-white/80 leading-relaxed mt-2 border-t border-white/10 pt-2"></p>
             </div>
         </div>
 
+        <!-- Subtle Bottom Controls Hint -->
+        <footer class="flex justify-between items-end gap-4 pointer-events-none">
+            <div class="hud-panel px-3.5 py-2 rounded-sm text-[10px] tracking-wider text-white/50 font-mono flex items-center gap-3">
+                <span class="text-white/80 font-bold">CONTROLS:</span>
+                <span>W A S D to fly</span>
+                <span>•</span>
+                <span>Drag mouse to look</span>
+                <span>•</span>
+                <span>Scroll for impulse</span>
+                <span>•</span>
+                <span>Click artwork to focus / release</span>
+            </div>
+        </footer>
     </div>
 
-    <!-- PWA Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(registration => console.log('ServiceWorker registration successful with scope: ', registration.scope))
-                    .catch(error => console.log('ServiceWorker registration failed: ', error));
-            });
-        }
-    </script>
-    
-    <!-- Inline Manifest for simplicity, normally in manifest.json -->
-    <script type="application/json" id="manifest">
-    {
-      "name": "Momentum: Task Tracker",
-      "short_name": "Momentum",
-      "start_url": ".",
-      "display": "standalone",
-      "background_color": "#10101a",
-      "theme_color": "#1a1a2e",
-      "description": "A sleek and modern PWA to track your tasks and build momentum.",
-      "icons": [
-        {
-          "src": "https://placehold.co/192x192/1a1a2e/ffffff?text=M",
-          "sizes": "192x192",
-          "type": "image/png"
-        },
-        {
-          "src": "https://placehold.co/512x512/1a1a2e/ffffff?text=M",
-          "sizes": "512x512",
-          "type": "image/png"
-        }
-      ]
-    }
-    </script>
-    
-    <!-- Main Application Logic -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const app = {
-                // --- DATA ---
-                quotes: [
-                    "The secret of getting ahead is getting started.",
-                    "Discipline is the bridge between goals and accomplishment.",
-                    "Well done is better than well said.",
-                    "A year from now you may wish you had started today.",
-                    "The future depends on what you do today."
-                ],
+    <!-- CELESTIAL MEDIA DIRECTORY DRAWER -->
+    <div id="fleet-directory" class="fixed top-20 right-5 z-20 w-80 md:w-96 hud-panel corner-bracket p-4 rounded-sm space-y-3 hidden hud-interactive max-h-[75vh] flex flex-col shadow-2xl">
+        <div class="flex justify-between items-center border-b border-white/10 pb-2">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 bg-cyan-400"></span>
+                <span id="directory-header-title" class="text-xs font-bold tracking-widest uppercase">MEDIA DIRECTORY</span>
+            </div>
+            <button id="btn-close-directory" class="text-xs font-bold text-white/50 hover:text-white uppercase">[ ✕ ]</button>
+        </div>
 
-                state: {
-                    tasks: [],
-                    currentFilter: 'all'
-                },
+        <!-- Search Bar -->
+        <input type="text" id="directory-search" class="w-full bg-black/60 border border-white/15 px-3 py-1.5 text-xs text-white rounded-none focus:outline-none focus:border-cyan-400 font-mono" placeholder="FILTER BY TITLE, SERIAL...">
 
-                // --- INITIAL TASKS ---
-                initialTasks: [
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Math (Riley)',
-                        title: 'Hyperbolic functions',
-                        completed: false,
-                        subtasks: []
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Math (Riley)',
-                        title: 'Complex numbers',
-                        completed: false,
-                        subtasks: []
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Math (Riley)',
-                        title: 'Theory of equations part',
-                        completed: false,
-                        subtasks: []
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Growth',
-                        title: 'Collect 30 profiles',
-                        completed: false,
-                        subtasks: []
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Growth',
-                        title: 'Remove 200 insta',
-                        completed: false,
-                        subtasks: []
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Web Dev',
-                        title: 'Production Env',
-                        completed: false,
-                        subtasks: [
-                            { id: crypto.randomUUID(), title: 'Polish landing page', completed: false },
-                            { id: crypto.randomUUID(), title: 'Clean up cloudinary', completed: false },
-                            { id: crypto.randomUUID(), title: 'Add delete function', completed: false },
-                            { id: crypto.randomUUID(), title: 'Account for country code problem', completed: false },
-                            { id: crypto.randomUUID(), title: 'Sort out layout issue on store page', completed: false }
-                        ]
-                    },
-                    {
-                        id: crypto.randomUUID(),
-                        category: 'Web Dev',
-                        title: 'Dev Env',
-                        completed: false,
-                        subtasks: [
-                            { id: crypto.randomUUID(), title: 'Mpesa', completed: false },
-                            { id: crypto.randomUUID(), title: 'Stripe', completed: false },
-                            { id: crypto.randomUUID(), title: 'Auth', completed: false }
-                        ]
-                    }
-                ],
+        <!-- Filter Chips -->
+        <div class="flex gap-1.5 text-[9px] flex-wrap">
+            <button data-dir-filter="all" class="dir-filter-btn px-2 py-0.5 border border-cyan-400 text-cyan-400 bg-cyan-400/10">ALL</button>
+            <button data-dir-filter="video" class="dir-filter-btn px-2 py-0.5 border border-white/20 text-white/70">VIDEOS</button>
+            <button data-dir-filter="image" class="dir-filter-btn px-2 py-0.5 border border-white/20 text-white/70">IMAGES</button>
+            <button data-dir-filter="inner" class="dir-filter-btn px-2 py-0.5 border border-white/20 text-white/70">INNER</button>
+            <button data-dir-filter="mid" class="dir-filter-btn px-2 py-0.5 border border-white/20 text-white/70">MID</button>
+            <button data-dir-filter="outer" class="dir-filter-btn px-2 py-0.5 border border-white/20 text-white/70">OUTER</button>
+        </div>
 
-                // --- DOM ELEMENTS ---
-                elements: {
-                    taskList: document.getElementById('task-list'),
-                    currentDate: document.getElementById('current-date'),
-                    greeting: document.getElementById('greeting'),
-                    motivationalQuote: document.getElementById('motivational-quote'),
-                    progressBar: document.getElementById('progress-bar'),
-                    progressText: document.getElementById('progress-text'),
-                    filterContainer: document.getElementById('filter-container'),
-                    addTaskFab: document.getElementById('add-task-fab'),
-                    addTaskModal: document.getElementById('add-task-modal'),
-                    addTaskForm: document.getElementById('add-task-form'),
-                    clearAllBtn: document.getElementById('clear-all-btn'),
-                    clearAllModal: document.getElementById('clear-all-modal'),
-                    confirmClearBtn: document.getElementById('confirm-clear-btn'),
-                },
-                
-                // --- METHODS ---
-                init() {
-                    this.loadState();
-                    this.updateHeader();
-                    this.renderFilters();
-                    this.renderTasks();
-                    this.addEventListeners();
-                    feather.replace(); // Initialize Feather icons
-                },
-                
-                loadState() {
-                    const savedTasks = localStorage.getItem('momentumTasks');
-                    if (savedTasks) {
-                        this.state.tasks = JSON.parse(savedTasks);
+        <!-- Scrollable Monoliths Directory List -->
+        <div id="directory-list" class="space-y-1.5 overflow-y-auto pr-1 flex-1 text-xs font-mono">
+            <!-- Injected dynamically -->
+        </div>
+    </div>
+
+    <!-- MAIN ENGINE CODE (ES MODULE) -->
+    <script type="module">
+        import { getSystemConfig, ASPECT_RATIOS } from './js/config.js';
+        import { cloudinaryService } from './js/cloudinary-service.js';
+        import { firebaseService } from './js/firebase-service.js';
+
+        const GOLDEN_ANGLE = 2.399963229728653; // ~137.5077° in radians
+
+        /***************************************************************************
+         * 1. KINETIC TEXTURE & MEDIA LOADER ENGINE
+         ***************************************************************************/
+        class KineticMediaFactory {
+            constructor() {
+                this.dynamicTextures = [];
+                this.textureLoader = new THREE.TextureLoader();
+                this.textureLoader.setCrossOrigin('anonymous');
+            }
+
+            createTextureForMonolith(monolith, index) {
+                const aspectKey = monolith.aspectRatio || '16:9';
+                const preset = ASPECT_RATIOS[aspectKey] || ASPECT_RATIOS['16:9'];
+                const isVideo = monolith.mediaType === 'video';
+                const hasUrl = Boolean(monolith.url && monolith.url.trim().length > 0);
+
+                if (isVideo && hasUrl) {
+                    const video = document.createElement('video');
+                    video.crossOrigin = 'anonymous';
+                    video.src = monolith.url;
+                    video.loop = true;
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.autoplay = true;
+                    video.play().catch(e => console.log('Autoplay muted deferred', e));
+
+                    const texture = new THREE.VideoTexture(video);
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    texture.format = THREE.RGBAFormat;
+
+                    return {
+                        texture,
+                        isVideo: true,
+                        videoEl: video,
+                        serial: monolith.serial || `MNL-${String(index + 1).padStart(2, '0')}`,
+                        title: monolith.title,
+                        description: monolith.description,
+                        cloudinaryPath: monolith.cloudinaryPublicId || monolith.url
+                    };
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = preset.texW;
+                canvas.height = preset.texH;
+                const ctx = canvas.getContext('2d');
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.anisotropy = 4;
+
+                const serial = monolith.serial || `MNL-${String(index + 1).padStart(2, '0')} // 0x${((index + 1) * 439).toString(16).toUpperCase()}`;
+                const mode = index % 4;
+
+                if (!hasUrl && isVideo) {
+                    this.renderKineticFrame(ctx, preset.texW, preset.texH, 0, index, serial, mode, null);
+                    this.dynamicTextures.push({
+                        ctx,
+                        w: preset.texW,
+                        h: preset.texH,
+                        texture,
+                        index,
+                        serial,
+                        mode,
+                        speed: 0.7 + (index % 5) * 0.25,
+                        cardRef: null
+                    });
+                } else if (hasUrl) {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        this.renderKineticFrame(ctx, preset.texW, preset.texH, 1.5, index, serial, mode, img);
+                        texture.needsUpdate = true;
+                    };
+                    img.onerror = () => {
+                        this.renderKineticFrame(ctx, preset.texW, preset.texH, 0, index, serial, mode, null);
+                        texture.needsUpdate = true;
+                    };
+                    img.src = monolith.url;
+                } else {
+                    this.renderKineticFrame(ctx, preset.texW, preset.texH, 0, index, serial, mode, null);
+                }
+
+                return {
+                    texture,
+                    isVideo,
+                    serial,
+                    title: monolith.title,
+                    description: monolith.description,
+                    cloudinaryPath: monolith.cloudinaryPublicId || monolith.url || 'procedural://singularity'
+                };
+            }
+
+            renderKineticFrame(ctx, w, h, time, index, serial, mode, loadedImage) {
+                ctx.fillStyle = '#09090d';
+                ctx.fillRect(0, 0, w, h);
+
+                if (loadedImage) {
+                    const imgRatio = loadedImage.width / loadedImage.height;
+                    const cRatio = w / h;
+                    let drawW = w, drawH = h, offsetX = 0, offsetY = 0;
+                    if (imgRatio > cRatio) {
+                        drawW = h * imgRatio;
+                        offsetX = -(drawW - w) * 0.5;
                     } else {
-                        // Load initial tasks if no saved data
-                        this.state.tasks = this.initialTasks;
+                        drawH = w / imgRatio;
+                        offsetY = -(drawH - h) * 0.5;
                     }
-                },
+                    ctx.save();
+                    ctx.filter = 'contrast(125%) saturate(110%) brightness(88%)';
+                    ctx.drawImage(loadedImage, offsetX, offsetY, drawW, drawH);
+                    ctx.restore();
 
-                saveState() {
-                    localStorage.setItem('momentumTasks', JSON.stringify(this.state.tasks));
-                },
+                    const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.15, w * 0.5, h * 0.5, Math.max(w, h) * 0.7);
+                    grad.addColorStop(0, 'rgba(0,0,0,0)');
+                    grad.addColorStop(1, 'rgba(5,5,10,0.65)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                } else {
+                    ctx.save();
+                    if (mode === 0) {
+                        const cx = w * 0.5, cy = h * 0.5;
+                        for (let i = 0; i < 16; i++) {
+                            const r = ((i * 22 + time * 45) % (Math.min(w, h) * 0.46));
+                            const hue = (time * 35 + i * 22) % 360;
+                            ctx.strokeStyle = i % 3 === 0 ? `hsla(${hue}, 95%, 65%, 0.75)` : 'rgba(240,244,255,0.28)';
+                            ctx.lineWidth = i % 4 === 0 ? 2 : 1;
+                            ctx.beginPath();
+                            ctx.ellipse(cx, cy, r, r * (0.45 + 0.35 * Math.sin(time * 0.8 + i * 0.3)), time * 0.4 + i * 0.12, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    } else if (mode === 1) {
+                        const lines = 24;
+                        for (let j = 0; j < lines; j++) {
+                            const baseY = (h * 0.18) + (j / lines) * (h * 0.64);
+                            ctx.beginPath();
+                            const hue = (j * 12 + time * 50) % 360;
+                            ctx.strokeStyle = j % 5 === 0 ? `hsla(${hue}, 90%, 60%, 0.9)` : 'rgba(244,244,246,0.45)';
+                            ctx.lineWidth = j % 5 === 0 ? 2.2 : 1;
+                            for (let x = 24; x <= w - 24; x += 12) {
+                                const wave = Math.sin(x * 0.025 + time * 2.2 + j * 0.4) * 14 * Math.sin(j * 0.2 + time);
+                                if (x === 24) ctx.moveTo(x, baseY + wave);
+                                else ctx.lineTo(x, baseY + wave);
+                            }
+                            ctx.stroke();
+                        }
+                    } else if (mode === 2) {
+                        const cols = 8, rows = 6;
+                        const cellW = (w - 48) / cols, cellH = (h - 72) / rows;
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                const v = Math.sin(c * 1.3 + r * 2.1 + time * 3.0);
+                                if (v > 0.15) {
+                                    const hue = (c * 30 + r * 20 + time * 60) % 360;
+                                    ctx.fillStyle = v > 0.75 ? `hsla(${hue}, 100%, 60%, 0.85)` : `rgba(244, 244, 246, ${v * 0.45})`;
+                                    ctx.fillRect(24 + c * cellW + 3, 36 + r * cellH + 3, cellW - 6, cellH - 6);
+                                }
+                            }
+                        }
+                    } else {
+                        ctx.beginPath();
+                        const cx = w * 0.5, cy = h * 0.5, rx = w * 0.36, ry = h * 0.34;
+                        for (let t = 0; t < Math.PI * 2; t += 0.02) {
+                            const px = cx + Math.sin(3 * t + time * 1.4) * rx;
+                            const py = cy + Math.sin(4 * t) * ry;
+                            if (t === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.strokeStyle = '#00f0ff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
 
-                updateHeader() {
-                    const now = new Date();
-                    this.elements.currentDate.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-                    
-                    const hour = now.getHours();
-                    let greetingText = 'Good Evening';
-                    if (hour < 12) greetingText = 'Good Morning';
-                    else if (hour < 18) greetingText = 'Good Afternoon';
-                    this.elements.greeting.textContent = greetingText;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(10, 10, w - 20, h - 20);
 
-                    const randomQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
-                    this.elements.motivationalQuote.textContent = `"${randomQuote}"`;
-                },
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.font = 'bold 12px "JetBrains Mono", monospace';
+                ctx.fillText(serial, 20, 28);
 
-                renderFilters() {
-                    const categories = ['all', ...new Set(this.state.tasks.map(task => task.category || 'Uncategorized'))];
-                    this.elements.filterContainer.innerHTML = categories.map(category => {
-                        const isActive = this.state.currentFilter === category;
-                        return `
-                            <button 
-                                data-filter="${category}" 
-                                class="filter-btn capitalize px-3 py-1 rounded-full text-sm font-medium transition-all duration-300
-                                ${isActive 
-                                    ? 'bg-indigo-600 text-white' 
-                                    : 'bg-[#1e1e3f] text-gray-300 hover:bg-indigo-500/20'
-                                }"
-                            >
-                                ${category}
-                            </button>
-                        `;
-                    }).join('');
-                },
+                const badge = loadedImage ? 'ARCHIVE // STILL' : `KINETIC STREAM // ${(time * 24 % 100).toFixed(0)} FPS`;
+                ctx.font = '10px "JetBrains Mono", monospace';
+                ctx.fillStyle = loadedImage ? 'rgba(255,255,255,0.65)' : '#00f0ff';
+                ctx.fillText(badge, 20, h - 18);
 
-                renderTasks() {
-                    this.elements.taskList.innerHTML = '';
-                    
-                    const filteredTasks = this.state.tasks.filter(task => 
-                        this.state.currentFilter === 'all' || 
-                        (task.category || 'Uncategorized') === this.state.currentFilter
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.fillRect(w - 28, 20, 8, 2);
+                ctx.fillRect(w - 22, 16, 2, 8);
+            }
+
+            update(elapsedTime, cameraPos) {
+                for (let i = 0; i < this.dynamicTextures.length; i++) {
+                    const item = this.dynamicTextures[i];
+                    // Distance LOD: skip frame rendering if card is far away to keep 60 FPS rock-solid
+                    if (item.cardRef && cameraPos) {
+                        const dist = item.cardRef.group.position.distanceTo(cameraPos);
+                        if (dist > 140 && item.cardRef.state === 0) {
+                            continue;
+                        }
+                    }
+                    this.renderKineticFrame(item.ctx, item.w, item.h, elapsedTime * item.speed, item.index, item.serial, item.mode, null);
+                    item.texture.needsUpdate = true;
+                }
+            }
+        }
+
+        /***************************************************************************
+         * 2. CUSTOM GLSL SHADERS
+         ***************************************************************************/
+        const AccretionVertexShader = `
+            varying vec2 vUv;
+            varying vec3 vWorldPos;
+            void main() {
+                vUv = uv;
+                vec4 wp = modelMatrix * vec4(position, 1.0);
+                vWorldPos = wp.xyz;
+                gl_Position = projectionMatrix * viewMatrix * wp;
+            }
+        `;
+
+        const AccretionFragmentShader = `
+            uniform float uTime;
+            uniform float uPolarity;
+            uniform float uRupture;
+            varying vec2 vUv;
+
+            float hash(vec2 p) {
+                p = fract(p * vec2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return fract(p.x * p.y);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float amp = 0.5;
+                for (int i = 0; i < 4; i++) {
+                    v += amp * noise(p);
+                    p *= 2.03;
+                    amp *= 0.5;
+                }
+                return v;
+            }
+
+            vec3 cosinePalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {
+                return a + b * cos(6.28318 * (c * t + d));
+            }
+
+            void main() {
+                vec2 centered = vUv * 2.0 - 1.0;
+                float dist = length(centered);
+
+                float inner = 0.28;
+                float outer = 0.96;
+                if (dist < inner || dist > outer) {
+                    discard;
+                }
+
+                float angle = atan(centered.y, centered.x);
+                float keplerianSpeed = 1.35 / pow(dist, 1.5);
+                float rotation = angle + uTime * keplerianSpeed * 0.45;
+
+                vec2 polarCoords = vec2(dist * 5.0, rotation * 3.0);
+                float swirl = fbm(polarCoords + vec2(uTime * 0.2, -uTime * 0.4));
+                float filaments = fbm(polarCoords * 2.5 - uTime * 0.35);
+
+                float doppler = 0.5 + 0.5 * sin(angle - 0.4);
+                float intensity = (swirl * 0.7 + filaments * 0.5) * (0.8 + 0.4 * doppler);
+
+                float edgeFade = smoothstep(inner, inner + 0.06, dist) * (1.0 - smoothstep(outer - 0.14, outer, dist));
+                intensity *= edgeFade;
+
+                vec3 colStandardDark = vec3(0.0, 0.94, 1.0) * intensity * 1.5;
+                colStandardDark += vec3(0.3, 0.1, 1.0) * pow(intensity, 2.0) * 1.2;
+
+                vec3 colStandardLight = vec3(1.0, 0.05, 0.35) * intensity * 1.4;
+                colStandardLight += vec3(0.1, 0.1, 0.2) * (1.0 - intensity);
+
+                vec3 baseAccretion = mix(colStandardDark, colStandardLight, uPolarity);
+
+                if (uRupture > 0.01) {
+                    float specT = dist * 2.0 + uTime * 2.5 + swirl;
+                    vec3 spectral = cosinePalette(
+                        specT,
+                        vec3(0.5, 0.5, 0.5),
+                        vec3(0.5, 0.5, 0.5),
+                        vec3(1.0, 1.0, 1.0),
+                        vec3(0.0, 0.33, 0.67)
+                    );
+                    baseAccretion = mix(baseAccretion, spectral * 1.8, uRupture * 0.85);
+                }
+
+                float alpha = clamp(intensity * 1.6, 0.0, 0.95);
+                gl_FragColor = vec4(baseAccretion, alpha);
+            }
+        `;
+
+        const RupturePostVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = vec4(position.xy, 0.0, 1.0);
+            }
+        `;
+
+        const RupturePostFragmentShader = `
+            uniform sampler2D tDiffuse;
+            uniform float uTime;
+            uniform float uRupture;
+            uniform float uPolarity;
+            uniform vec2 uResolution;
+            varying vec2 vUv;
+
+            vec3 spectralCos(float t) {
+                return vec3(0.5) + vec3(0.5) * cos(6.28318 * (vec3(1.0) * t + vec3(0.0, 0.33, 0.67)));
+            }
+
+            void main() {
+                vec2 uv = vUv;
+                if (uRupture < 0.001) {
+                    gl_FragColor = texture2D(tDiffuse, uv);
+                    return;
+                }
+
+                float wave = sin(uv.y * 35.0 + uTime * 20.0) * cos(uv.x * 20.0 - uTime * 15.0);
+                vec2 distortedUv = uv + vec2(wave, wave * 0.5) * (uRupture * 0.038);
+
+                float split = uRupture * 0.024 * (1.0 + 0.4 * sin(uTime * 30.0));
+                float r = texture2D(tDiffuse, distortedUv + vec2(split, 0.0)).r;
+                float g = texture2D(tDiffuse, distortedUv).g;
+                float b = texture2D(tDiffuse, distortedUv - vec2(split, 0.0)).b;
+
+                vec3 col = vec3(r, g, b);
+
+                float specPulse = smoothstep(0.2, 0.8, uRupture) * sin(uv.y * 12.0 + uTime * 8.0);
+                if (specPulse > 0.0) {
+                    vec3 iridescence = spectralCos(uv.x * 3.0 + uTime * 2.0);
+                    col = mix(col, iridescence, specPulse * 0.45);
+                }
+
+                float vignette = length(uv - 0.5) * 1.414;
+                col -= vec3(vignette * uRupture * 0.25);
+
+                gl_FragColor = vec4(col, 1.0);
+            }
+        `;
+
+        /***************************************************************************
+         * 3. ORBITAL 3D GALLERY CONTROLLER
+         ***************************************************************************/
+        class OrbitalSpaceGallery {
+            constructor() {
+                this.mediaFactory = new KineticMediaFactory();
+                this.cards = [];
+                this.cardGroupContainer = null;
+                this.inspectedCard = null;
+                this.rawMonolithsData = [];
+
+                this.clock = new THREE.Clock();
+                this.frameCount = 0;
+                this.fpsTimer = 0;
+
+                this.polarity = 0;
+                this.polarityLerp = 0.0;
+                this.blackVoidColor = new THREE.Color(0x030305);
+                this.whiteVoidColor = new THREE.Color(0xf4f4f6);
+                this.currentVoidColor = new THREE.Color(0x030305);
+
+                this.ruptureActive = false;
+                this.ruptureIntensity = 0.0;
+                this.ruptureDuration = 3.2;
+                this.ruptureElapsed = 0.0;
+                this.nextRuptureCountdown = 20.0;
+
+                this.cameraYaw = 0;
+                this.cameraPitch = 0.12;
+                this.targetYaw = 0;
+                this.targetPitch = 0.12;
+                this.cameraVelocity = new THREE.Vector3();
+                this.moveInput = { forward: 0, right: 0, up: 0 };
+                this.isDraggingLook = false;
+                this.isPointerLocked = false;
+                this.pointerDownPos = { x: 0, y: 0 };
+                this.dragDistance = 0;
+
+                this.raycaster = new THREE.Raycaster();
+                this.mouseNDC = new THREE.Vector2(-999, -999);
+
+                this.initScene();
+                this.initSingularity();
+                this.initCosmicDust();
+                this.initPostProcessing();
+                this.initControlsAndEvents();
+                this.initDirectoryDrawer();
+                this.initFirebaseSubscription();
+
+                this.animate();
+            }
+
+            initScene() {
+                this.container = document.getElementById('webgl-container');
+
+                this.scene = new THREE.Scene();
+                this.scene.background = this.currentVoidColor;
+                this.scene.fog = new THREE.FogExp2(this.currentVoidColor, 0.0055);
+
+                this.camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 3000);
+                this.camera.position.set(0, 14, 76);
+                this.camera.lookAt(0, 0, 0);
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.15;
+                this.container.appendChild(this.renderer.domElement);
+
+                this.cardGroupContainer = new THREE.Group();
+                this.scene.add(this.cardGroupContainer);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+                this.scene.add(ambientLight);
+
+                this.keyLight = new THREE.DirectionalLight(0x00f0ff, 1.4);
+                this.keyLight.position.set(25, 45, 35);
+                this.scene.add(this.keyLight);
+
+                this.fillLight = new THREE.DirectionalLight(0xff0055, 0.9);
+                this.fillLight.position.set(-35, -20, -25);
+                this.scene.add(this.fillLight);
+            }
+
+            initSingularity() {
+                this.singularityGroup = new THREE.Group();
+                this.scene.add(this.singularityGroup);
+
+                const horizonGeo = new THREE.SphereGeometry(6.4, 64, 64);
+                this.horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                this.eventHorizonMesh = new THREE.Mesh(horizonGeo, this.horizonMat);
+                this.singularityGroup.add(this.eventHorizonMesh);
+
+                const ringGeo = new THREE.RingGeometry(6.42, 6.75, 96);
+                this.photonMat = new THREE.MeshBasicMaterial({
+                    color: 0xffaa55,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending
+                });
+                this.photonRing = new THREE.Mesh(ringGeo, this.photonMat);
+                this.photonRing.rotation.x = Math.PI * 0.5;
+                this.singularityGroup.add(this.photonRing);
+
+                const diskGeo = new THREE.PlaneGeometry(54, 54, 1, 1);
+                this.accretionUniforms = {
+                    uTime: { value: 0 },
+                    uPolarity: { value: 0 },
+                    uRupture: { value: 0 }
+                };
+                this.accretionMat = new THREE.ShaderMaterial({
+                    vertexShader: AccretionVertexShader,
+                    fragmentShader: AccretionFragmentShader,
+                    uniforms: this.accretionUniforms,
+                    transparent: true,
+                    depthWrite: false,
+                    blending: THREE.NormalBlending,
+                    side: THREE.DoubleSide
+                });
+
+                this.accretionDiskMain = new THREE.Mesh(diskGeo, this.accretionMat);
+                this.accretionDiskMain.rotation.x = Math.PI * 0.44;
+                this.accretionDiskMain.rotation.z = 0.18;
+                this.singularityGroup.add(this.accretionDiskMain);
+
+                this.accretionDiskLensed = new THREE.Mesh(diskGeo, this.accretionMat);
+                this.accretionDiskLensed.rotation.x = -0.18;
+                this.accretionDiskLensed.rotation.y = 0.25;
+                this.accretionDiskLensed.scale.setScalar(0.84);
+                this.singularityGroup.add(this.accretionDiskLensed);
+            }
+
+            initCosmicDust() {
+                const particleCount = 2000;
+                const positions = new Float32Array(particleCount * 3);
+                const scales = new Float32Array(particleCount);
+
+                for (let i = 0; i < particleCount; i++) {
+                    const r = 12 + Math.pow(Math.random(), 0.7) * 220;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = (Math.random() - 0.5) * Math.PI * 0.85;
+
+                    positions[i * 3] = r * Math.cos(theta) * Math.cos(phi);
+                    positions[i * 3 + 1] = r * Math.sin(phi) * 0.65;
+                    positions[i * 3 + 2] = r * Math.sin(theta) * Math.cos(phi);
+                    scales[i] = Math.random();
+                }
+
+                const dustGeo = new THREE.BufferGeometry();
+                dustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                dustGeo.setAttribute('aScale', new THREE.BufferAttribute(scales, 1));
+
+                this.dustMat = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.35,
+                    transparent: true,
+                    opacity: 0.55,
+                    sizeAttenuation: true
+                });
+
+                this.dustPoints = new THREE.Points(dustGeo, this.dustMat);
+                this.scene.add(this.dustPoints);
+            }
+
+            initFirebaseSubscription() {
+                firebaseService.subscribe((monoliths) => {
+                    this.rawMonolithsData = monoliths || [];
+                    this.rebuildMediaMonoliths(this.rawMonolithsData);
+                    this.renderDirectoryList();
+                });
+            }
+
+            rebuildMediaMonoliths(monoliths) {
+                while (this.cardGroupContainer.children.length > 0) {
+                    const obj = this.cardGroupContainer.children[0];
+                    this.cardGroupContainer.remove(obj);
+                }
+                this.cards = [];
+                this.mediaFactory.dynamicTextures = [];
+                this.inspectedCard = null;
+
+                const count = monoliths.length;
+                const countBadge = document.getElementById('hud-card-count');
+                if (countBadge) countBadge.textContent = `${count} MEDIA IN ORBIT`;
+
+                const edgeMat = new THREE.MeshStandardMaterial({
+                    color: 0x1a1a24,
+                    metalness: 0.85,
+                    roughness: 0.25
+                });
+
+                // High-capacity swarm scale dampener: scales monolith dimensions subtly when count is high
+                const swarmScale = Math.max(0.62, Math.min(1.0, 34 / Math.sqrt(Math.max(34, count))));
+                const minRadius = 18;
+                const maxRadius = Math.max(82, 34 + Math.sqrt(count) * 16.5);
+
+                for (let i = 0; i < count; i++) {
+                    const item = monoliths[i];
+                    const aspectKey = item.aspectRatio || '16:9';
+                    const preset = ASPECT_RATIOS[aspectKey] || ASPECT_RATIOS['16:9'];
+                    const scaleFactor = this.randomRange(0.85, 1.25) * swarmScale;
+                    const width = preset.w * scaleFactor;
+                    const height = preset.h * scaleFactor;
+                    const thickness = 0.045;
+
+                    const mediaInfo = this.mediaFactory.createTextureForMonolith(item, i);
+                    const cardGroup = new THREE.Group();
+
+                    // Core chassis
+                    const coreGeo = new THREE.BoxGeometry(width, height, thickness);
+                    const coreMesh = new THREE.Mesh(coreGeo, edgeMat);
+                    cardGroup.add(coreMesh);
+
+                    // Front media plane
+                    const faceGeo = new THREE.PlaneGeometry(width * 0.985, height * 0.985);
+                    const faceMat = new THREE.MeshBasicMaterial({
+                        map: mediaInfo.texture,
+                        side: THREE.FrontSide
+                    });
+                    const frontFace = new THREE.Mesh(faceGeo, faceMat);
+                    frontFace.position.z = thickness * 0.5 + 0.004;
+                    cardGroup.add(frontFace);
+
+                    // Back media plane (never mirrored)
+                    const backFace = new THREE.Mesh(faceGeo, faceMat);
+                    backFace.rotation.y = Math.PI;
+                    backFace.position.z = -(thickness * 0.5 + 0.004);
+                    cardGroup.add(backFace);
+
+                    // Wireframe border highlight
+                    const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(width + 0.14, height + 0.14, thickness + 0.04));
+                    const borderMat = new THREE.LineBasicMaterial({
+                        color: 0x00f0ff,
+                        transparent: true,
+                        opacity: 0.0
+                    });
+                    const borderLines = new THREE.LineSegments(borderGeo, borderMat);
+                    cardGroup.add(borderLines);
+
+                    // DYNAMIC KEPLERIAN DISPERSION ALGORITHM
+                    const radialLayer = Math.pow(i / Math.max(1, count), 0.88);
+                    const baseRadius = minRadius + radialLayer * (maxRadius - minRadius);
+                    const bandMultiplier = item.orbitBand === 'inner' ? 0.82 : (item.orbitBand === 'outer' ? 1.24 : 1.0);
+                    const orbitRadius = Math.max(16, (item.orbitRadius ? Math.min(item.orbitRadius, maxRadius) : (baseRadius * bandMultiplier)) + (i % 5) * 1.8);
+
+                    // Golden angle spiral distribution
+                    const orbitAngle = (i * GOLDEN_ANGLE) % (Math.PI * 2);
+                    const angularSpeed = (3.2 / Math.pow(orbitRadius, 1.15)) * (i % 6 === 0 ? -1 : 1);
+                    const inclination = Math.sin(i * 1.25) * Math.min(0.68, 0.20 + 0.40 * (orbitRadius / maxRadius));
+                    const ascendingNode = (i * 1.6180339) % (Math.PI * 2);
+                    const verticalAmp = 2.0 + (orbitRadius * 0.08) * Math.cos(i * 0.85);
+
+                    const cardData = {
+                        rawItem: item,
+                        id: mediaInfo.serial,
+                        title: mediaInfo.title || item.title || 'UNTITLED MONOLITH',
+                        description: mediaInfo.description || item.description || '',
+                        index: i,
+                        group: cardGroup,
+                        coreMesh,
+                        frontFace,
+                        backFace,
+                        borderMat,
+                        width,
+                        height,
+                        aspectLabel: preset.label,
+                        isVideo: mediaInfo.isVideo,
+                        cloudinaryPath: mediaInfo.cloudinaryPath,
+                        state: 0,
+                        orbitRadius,
+                        orbitAngle,
+                        angularSpeed,
+                        inclination,
+                        ascendingNode,
+                        verticalAmp,
+                        tumbleVel: new THREE.Vector3(
+                            this.randomRange(-0.20, 0.20),
+                            this.randomRange(-0.28, 0.28),
+                            this.randomRange(-0.12, 0.12)
+                        ),
+                        anchoredPosition: new THREE.Vector3(),
+                        anchoredQuaternion: new THREE.Quaternion()
+                    };
+
+                    // Associate reference for LOD culling
+                    const dynTex = this.mediaFactory.dynamicTextures.find(d => d.index === i);
+                    if (dynTex) dynTex.cardRef = cardData;
+
+                    this.computeOrbitalTransform(cardData, 0, cardGroup.position);
+                    cardGroup.rotation.set(
+                        this.randomRange(-0.35, 0.35),
+                        orbitAngle + Math.PI * 0.5,
+                        this.randomRange(-0.25, 0.25)
                     );
 
-                    if (filteredTasks.length === 0) {
-                        this.elements.taskList.innerHTML = `<p class="text-center text-gray-400">No tasks found. Add one!</p>`;
-                        this.updateProgress(filteredTasks);
-                        return;
+                    coreMesh.userData.card = cardData;
+                    frontFace.userData.card = cardData;
+                    backFace.userData.card = cardData;
+
+                    this.cardGroupContainer.add(cardGroup);
+                    this.cards.push(cardData);
+                }
+            }
+
+            computeOrbitalTransform(card, dt, targetVec) {
+                card.orbitAngle += card.angularSpeed * dt;
+                const a = card.orbitAngle;
+                const r = card.orbitRadius;
+
+                const x0 = Math.cos(a) * r;
+                const z0 = Math.sin(a) * r;
+                const y0 = Math.sin(a * 2.0 + card.ascendingNode) * card.verticalAmp + x0 * Math.sin(card.inclination);
+
+                const cosN = Math.cos(card.ascendingNode);
+                const sinN = Math.sin(card.ascendingNode);
+
+                targetVec.set(
+                    x0 * cosN - z0 * sinN,
+                    y0,
+                    x0 * sinN + z0 * cosN
+                );
+            }
+
+            initPostProcessing() {
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                const pr = Math.min(window.devicePixelRatio, 2);
+
+                this.renderTarget = new THREE.WebGLRenderTarget(w * pr, h * pr, {
+                    minFilter: THREE.LinearFilter,
+                    magFilter: THREE.LinearFilter,
+                    format: THREE.RGBAFormat
+                });
+
+                this.postScene = new THREE.Scene();
+                this.postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+                this.ruptureUniforms = {
+                    tDiffuse: { value: this.renderTarget.texture },
+                    uTime: { value: 0 },
+                    uRupture: { value: 0 },
+                    uPolarity: { value: 0 },
+                    uResolution: { value: new THREE.Vector2(w * pr, h * pr) }
+                };
+
+                const quadGeo = new THREE.PlaneGeometry(2, 2);
+                const quadMat = new THREE.ShaderMaterial({
+                    vertexShader: RupturePostVertexShader,
+                    fragmentShader: RupturePostFragmentShader,
+                    uniforms: this.ruptureUniforms,
+                    depthWrite: false,
+                    depthTest: false
+                });
+
+                this.postQuad = new THREE.Mesh(quadGeo, quadMat);
+                this.postScene.add(this.postQuad);
+            }
+
+            triggerSpacetimeRupture() {
+                // Calm, stable cosmic atmosphere to keep focus on media
+            }
+
+            updateSpacetimeRupture(dt, elapsedTime) {
+                this.ruptureIntensity = 0.0;
+            }
+
+            applyPolarityTheme() {
+                this.horizonMat.color.setHex(0x000000);
+                this.photonMat.color.setHex(0xffaa55);
+                this.photonMat.blending = THREE.AdditiveBlending;
+                this.dustMat.color.setHex(0xffffff);
+            }
+
+            handleCardClick(clickedCard) {
+                if (!clickedCard) {
+                    if (this.inspectedCard) {
+                        this.setCardState(this.inspectedCard, 0);
+                        this.inspectedCard = null;
+                        this.updateTelemetryHUD(null);
                     }
+                    return;
+                }
 
-                    filteredTasks.forEach((task, index) => {
-                        const taskElement = document.createElement('div');
-                        taskElement.className = `task-card p-4 rounded-2xl bg-[#1e1e3f] shadow-md fade-in ${task.completed ? 'completed' : ''}`;
-                        taskElement.style.animationDelay = `${index * 50}ms`;
-                        
-                        taskElement.innerHTML = this.getTaskHtml(task);
-                        this.elements.taskList.appendChild(taskElement);
-                    });
-                    
-                    this.addTaskEventListeners();
-                    this.updateProgress(filteredTasks);
-                    feather.replace(); // Re-apply icons
-                },
-                
-                getTaskHtml(task) {
-                    const categoryHtml = task.category 
-                        ? `<p class="font-semibold text-indigo-300 text-xs uppercase tracking-wider">${task.category}</p>` 
-                        : '';
-                    
-                    const subtasksHtml = task.subtasks.length > 0 
-                        ? `<div class="mt-3 space-y-2 pl-4 border-l-2 border-gray-700">
-                                ${task.subtasks.map(subtask => `
-                                    <div data-task-id="${task.id}" data-subtask-id="${subtask.id}" class="subtask flex items-center justify-between cursor-pointer group ${subtask.completed ? 'completed' : ''}">
-                                        <div class="flex items-center">
-                                            <div class="subtask-checkbox w-4 h-4 rounded border-2 ${subtask.completed ? 'bg-purple-500 border-purple-500' : 'border-gray-600'} flex-shrink-0 mr-2 transition-all">
-                                                ${subtask.completed ? '<i data-feather="check" class="w-3 h-3 text-white"></i>' : ''}
-                                            </div>
-                                            <span class="subtask-title text-sm text-gray-300">${subtask.title}</span>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                           </div>`
-                        : '';
-
-                    return `
-                        <div class="flex items-start justify-between">
-                            <div class="flex-grow flex items-start cursor-pointer" data-task-id="${task.id}">
-                                <div class="task-checkbox w-6 h-6 rounded-full flex items-center justify-center border-2 ${task.completed ? 'bg-indigo-500 border-indigo-500' : 'border-gray-600'} transition-all duration-300 flex-shrink-0 mr-4 mt-1">
-                                    ${task.completed ? '<i data-feather="check" class="w-4 h-4 text-white"></i>' : ''}
-                                </div>
-                                <div class="flex-grow">
-                                    ${categoryHtml}
-                                    <p class="task-title text-white font-medium text-lg">${task.title}</p>
-                                </div>
-                            </div>
-                            <button class="delete-task-btn ml-4 text-gray-600 hover:text-red-400 transition-colors" data-task-id="${task.id}">
-                                <i data-feather="x" class="w-5 h-5"></i>
-                            </button>
-                        </div>
-                        ${subtasksHtml}
-                    `;
-                },
-                
-                addTaskEventListeners() {
-                    this.elements.taskList.querySelectorAll('.task-checkbox, .task-title').forEach(el => {
-                        el.closest('[data-task-id]').addEventListener('click', (e) => {
-                             // Prevent clicks on subtasks from bubbling up to toggle the main task
-                            if (e.target.closest('.subtask')) return;
-                            
-                            const taskId = e.currentTarget.dataset.taskId;
-                            this.toggleTaskCompletion(taskId);
-                        });
-                    });
-
-                    this.elements.taskList.querySelectorAll('.subtask').forEach(el => {
-                        el.addEventListener('click', (e) => {
-                            const taskId = e.currentTarget.dataset.taskId;
-                            const subtaskId = e.currentTarget.dataset.subtaskId;
-                            this.toggleSubtaskCompletion(taskId, subtaskId);
-                        });
-                    });
-
-                    this.elements.taskList.querySelectorAll('.delete-task-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            const taskId = e.currentTarget.dataset.taskId;
-                            this.deleteTask(taskId);
-                        });
-                    });
-                },
-
-                toggleTaskCompletion(taskId) {
-                    const task = this.state.tasks.find(t => t.id === taskId);
-                    if (!task) return;
-                    
-                    task.completed = !task.completed;
-                    
-                    // Optional: Toggle all subtasks when parent is toggled
-                    // task.subtasks.forEach(sub => sub.completed = task.completed);
-                    
-                    this.saveState();
-                    this.renderTasks(); // Re-render to update UI
-                },
-                
-                toggleSubtaskCompletion(taskId, subtaskId) {
-                    const task = this.state.tasks.find(t => t.id === taskId);
-                    if (!task) return;
-                    
-                    const subtask = task.subtasks.find(s => s.id === subtaskId);
-                    if (!subtask) return;
-                    
-                    subtask.completed = !subtask.completed;
-                    
-                    // Optional: Check if all subtasks are complete to mark parent complete
-                    // task.completed = task.subtasks.every(s => s.completed);
-
-                    this.saveState();
-                    this.renderTasks();
-                },
-                
-                deleteTask(taskId) {
-                    this.state.tasks = this.state.tasks.filter(t => t.id !== taskId);
-                    this.saveState();
-                    this.renderFilters(); // Re-render filters in case a category is now empty
-                    this.renderTasks();
-                },
-
-                updateProgress(tasks) {
-                    const taskList = tasks || this.state.tasks; // Use provided list (filtered) or all tasks
-                    const completedTasks = taskList.filter(task => task.completed).length;
-                    const totalTasks = taskList.length;
-                    const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-                    
-                    this.elements.progressBar.style.width = `${percentage}%`;
-                    this.elements.progressText.textContent = `${Math.round(percentage)}% Complete`;
-                },
-                
-                showModal(modal) {
-                    modal.classList.remove('invisible');
-                    modal.classList.add('visible');
-                },
-
-                hideModal(modal) {
-                    modal.classList.remove('visible');
-                    modal.classList.add('invisible');
-                },
-
-                handleAddTaskForm(e) {
-                    e.preventDefault();
-                    const title = e.target.title.value.trim();
-                    const category = e.target.category.value.trim() || 'Uncategorized';
-                    
-                    if (title) {
-                        const newTask = {
-                            id: crypto.randomUUID(),
-                            category: category,
-                            title: title,
-                            completed: false,
-                            subtasks: []
-                        };
-                        this.state.tasks.unshift(newTask); // Add to the beginning
-                        this.saveState();
-                        this.renderFilters(); // Update filters with new category if needed
-                        
-                        // If current filter is not 'all', switch to new task's category
-                        if(this.state.currentFilter !== 'all' && this.state.currentFilter !== category) {
-                           this.state.currentFilter = category;
-                           this.renderFilters();
-                        }
-                        
-                        this.renderTasks();
-                        this.hideModal(this.elements.addTaskModal);
-                        e.target.reset();
+                if (clickedCard.state === 0) {
+                    this.setCardState(clickedCard, 1);
+                } else if (clickedCard.state === 1) {
+                    if (this.inspectedCard && this.inspectedCard !== clickedCard) {
+                        this.setCardState(this.inspectedCard, 0);
                     }
-                },
-                
-                clearAllTasks() {
-                    this.state.tasks = [];
-                    this.saveState();
-                    this.renderFilters();
-                    this.renderTasks();
-                    this.hideModal(this.elements.clearAllModal);
-                },
+                    this.setCardState(clickedCard, 2);
+                    this.inspectedCard = clickedCard;
+                } else if (clickedCard.state === 2) {
+                    this.setCardState(clickedCard, 0);
+                    if (this.inspectedCard === clickedCard) {
+                        this.inspectedCard = null;
+                    }
+                }
 
-                addEventListeners() {
-                    // Filter buttons
-                    this.elements.filterContainer.addEventListener('click', (e) => {
-                        const target = e.target.closest('.filter-btn');
-                        if (target) {
-                            this.state.currentFilter = target.dataset.filter;
-                            this.renderFilters(); // Re-render filters to show active state
-                            this.renderTasks();
+                this.updateTelemetryHUD(clickedCard);
+            }
+
+            setCardState(card, newState) {
+                card.state = newState;
+                if (newState === 1) {
+                    card.anchoredPosition.copy(card.group.position);
+                    const lookMat = new THREE.Matrix4().lookAt(this.camera.position, card.group.position, new THREE.Vector3(0, 1, 0));
+                    card.anchoredQuaternion.setFromRotationMatrix(lookMat);
+                    card.borderMat.color.setHex(0x00f0ff);
+                    card.borderMat.opacity = 0.85;
+                } else if (newState === 2) {
+                    card.borderMat.color.setHex(0xff0066);
+                    card.borderMat.opacity = 0.95;
+                } else {
+                    card.borderMat.opacity = 0.0;
+                }
+            }
+
+            /**
+             * Smoothly warps 6-DOF camera towards target monolith
+             */
+            warpCameraToCard(card) {
+                if (!card) return;
+                // Anchor and bring into proximity
+                this.setCardState(card, 1);
+                this.handleCardClick(card);
+
+                // Smoothly steer camera towards monolith position
+                const targetPos = card.group.position.clone();
+                const dir = targetPos.clone().sub(this.camera.position).normalize();
+                this.targetYaw = Math.atan2(-dir.x, -dir.z);
+                this.targetPitch = Math.asin(dir.y);
+            }
+
+            updateTelemetryHUD(card) {
+                const panel = document.getElementById('card-telemetry');
+                if (!panel) return;
+
+                if (!card) {
+                    panel.classList.add('opacity-0', 'translate-y-4');
+                    return;
+                }
+
+                panel.classList.remove('opacity-0', 'translate-y-4');
+                const titleEl = document.getElementById('card-title');
+                if (titleEl) titleEl.textContent = card.title || 'UNTITLED';
+
+                const idEl = document.getElementById('card-id');
+                if (idEl) idEl.textContent = `${card.id} • ${card.aspectLabel || '16:9'}`;
+
+                const typeEl = document.getElementById('card-type');
+                if (typeEl) typeEl.textContent = card.isVideo ? 'VIDEO STREAM' : 'IMAGE';
+
+                const descEl = document.getElementById('card-desc');
+                if (descEl) descEl.textContent = card.description || 'Orbital Media Monolith';
+
+                const hintEl = document.getElementById('card-action-hint');
+                if (hintEl) {
+                    if (card.state === 0) hintEl.textContent = 'CLICK: ANCHOR VIEW';
+                    else if (card.state === 1) hintEl.textContent = 'CLICK: BRING TO CAMERA';
+                    else hintEl.textContent = 'CLICK: RELEASE TO ORBIT';
+                }
+            }
+
+            initControlsAndEvents() {
+                const domEl = this.renderer.domElement;
+
+                window.addEventListener('keydown', (e) => {
+                    switch (e.code) {
+                        case 'KeyW': case 'ArrowUp': this.moveInput.forward = 1; break;
+                        case 'KeyS': case 'ArrowDown': this.moveInput.forward = -1; break;
+                        case 'KeyD': case 'ArrowRight': this.moveInput.right = 1; break;
+                        case 'KeyA': case 'ArrowLeft': this.moveInput.right = -1; break;
+                        case 'Space': case 'KeyE': this.moveInput.up = 1; break;
+                        case 'ShiftLeft': case 'ShiftRight': case 'KeyQ': this.moveInput.up = -1; break;
+                        case 'KeyR': this.triggerSpacetimeRupture(); break;
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    switch (e.code) {
+                        case 'KeyW': case 'ArrowUp': if (this.moveInput.forward > 0) this.moveInput.forward = 0; break;
+                        case 'KeyS': case 'ArrowDown': if (this.moveInput.forward < 0) this.moveInput.forward = 0; break;
+                        case 'KeyD': case 'ArrowRight': if (this.moveInput.right > 0) this.moveInput.right = 0; break;
+                        case 'KeyA': case 'ArrowLeft': if (this.moveInput.right < 0) this.moveInput.right = 0; break;
+                        case 'Space': case 'KeyE': if (this.moveInput.up > 0) this.moveInput.up = 0; break;
+                        case 'ShiftLeft': case 'ShiftRight': case 'KeyQ': if (this.moveInput.up < 0) this.moveInput.up = 0; break;
+                    }
+                });
+
+                domEl.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    this.isDraggingLook = true;
+                    this.pointerDownPos.x = e.clientX;
+                    this.pointerDownPos.y = e.clientY;
+                    this.dragDistance = 0;
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    if (this.isPointerLocked) {
+                        this.targetYaw -= e.movementX * 0.0022;
+                        this.targetPitch = Math.max(-1.48, Math.min(1.48, this.targetPitch - e.movementY * 0.0022));
+                        this.mouseNDC.set(0, 0);
+                    } else {
+                        this.mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+                        this.mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                        if (this.isDraggingLook) {
+                            const dx = e.clientX - this.pointerDownPos.x;
+                            const dy = e.clientY - this.pointerDownPos.y;
+                            this.dragDistance += Math.hypot(dx, dy);
+                            this.targetYaw -= (e.movementX || 0) * 0.0025;
+                            this.targetPitch = Math.max(-1.48, Math.min(1.48, this.targetPitch - (e.movementY || 0) * 0.0025));
                         }
-                    });
+                    }
+                });
 
-                    // Add Task FAB
-                    this.elements.addTaskFab.addEventListener('click', () => {
-                        this.showModal(this.elements.addTaskModal);
-                        this.elements.addTaskModal.querySelector('input[name="title"]').focus();
-                    });
-                    
-                    // Add Task Modal
-                    this.elements.addTaskForm.addEventListener('submit', (e) => this.handleAddTaskForm(e));
-                    this.elements.addTaskModal.querySelectorAll('.modal-close-btn, .modal-backdrop').forEach(el => {
-                        el.addEventListener('click', () => this.hideModal(this.elements.addTaskModal));
-                    });
-                    
-                    // Clear All Button
-                    this.elements.clearAllBtn.addEventListener('click', () => {
-                        this.showModal(this.elements.clearAllModal);
-                    });
-                    
-                    // Clear All Modal
-                    this.elements.confirmClearBtn.addEventListener('click', () => this.clearAllTasks());
-                    this.elements.clearAllModal.querySelectorAll('.modal-close-btn, .modal-backdrop').forEach(el => {
-                        el.addEventListener('click', () => this.hideModal(this.elements.clearAllModal));
+                window.addEventListener('mouseup', (e) => {
+                    if (this.isDraggingLook) {
+                        this.isDraggingLook = false;
+                        if (this.dragDistance < 6) {
+                            this.performRaycastSelection(true);
+                        }
+                    }
+                });
+
+                domEl.addEventListener('dblclick', () => {
+                    if (!this.isPointerLocked) {
+                        domEl.requestPointerLock?.();
+                    }
+                });
+
+                document.addEventListener('pointerlockchange', () => {
+                    this.isPointerLocked = (document.pointerLockElement === domEl);
+                });
+
+                window.addEventListener('wheel', (e) => {
+                    const thrust = -e.deltaY * 0.035;
+                    const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                    this.cameraVelocity.addScaledVector(forwardDir, thrust);
+                }, { passive: true });
+
+                window.addEventListener('resize', () => {
+                    const w = window.innerWidth;
+                    const h = window.innerHeight;
+                    this.camera.aspect = w / h;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(w, h);
+                    const pr = Math.min(window.devicePixelRatio, 2);
+                    this.renderTarget.setSize(w * pr, h * pr);
+                    this.ruptureUniforms.uResolution.value.set(w * pr, h * pr);
+                });
+
+                const btnReset = document.getElementById('btn-reset-orbits');
+                if (btnReset) {
+                    btnReset.addEventListener('click', () => {
+                        for (const card of this.cards) {
+                            this.setCardState(card, 0);
+                        }
+                        this.inspectedCard = null;
+                        this.updateTelemetryHUD(null);
                     });
                 }
-            };
+            }
 
-            app.init();
-        });
+            initDirectoryDrawer() {
+                const drawer = document.getElementById('fleet-directory');
+                const btnToggle = document.getElementById('btn-toggle-directory');
+                const btnClose = document.getElementById('btn-close-directory');
+                const searchInput = document.getElementById('directory-search');
+
+                btnToggle.addEventListener('click', () => {
+                    drawer.classList.toggle('hidden');
+                    if (!drawer.classList.contains('hidden')) {
+                        this.renderDirectoryList();
+                    }
+                });
+
+                btnClose.addEventListener('click', () => drawer.classList.add('hidden'));
+
+                searchInput.addEventListener('input', () => this.renderDirectoryList());
+
+                document.querySelectorAll('.dir-filter-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.dir-filter-btn').forEach(b => {
+                            b.className = 'dir-filter-btn px-2 py-0.5 border border-white/20 text-white/70';
+                        });
+                        btn.className = 'dir-filter-btn px-2 py-0.5 border border-cyan-400 text-cyan-400 bg-cyan-400/10 font-bold';
+                        this.directoryActiveFilter = btn.dataset.dirFilter;
+                        this.renderDirectoryList();
+                    });
+                });
+            }
+
+            renderDirectoryList() {
+                const listEl = document.getElementById('directory-list');
+                const searchEl = document.getElementById('directory-search');
+                const query = (searchEl?.value || '').toLowerCase().trim();
+                const filter = this.directoryActiveFilter || 'all';
+
+                if (!listEl) return;
+
+                let items = this.cards.filter(c => {
+                    if (filter === 'video' && !c.isVideo) return false;
+                    if (filter === 'image' && c.isVideo) return false;
+                    if (filter === 'inner' && c.rawItem?.orbitBand !== 'inner') return false;
+                    if (filter === 'mid' && c.rawItem?.orbitBand !== 'mid') return false;
+                    if (filter === 'outer' && c.rawItem?.orbitBand !== 'outer') return false;
+
+                    if (query) {
+                        const str = `${c.title} ${c.id} ${c.description}`.toLowerCase();
+                        return str.includes(query);
+                    }
+                    return true;
+                });
+
+                document.getElementById('directory-header-title').textContent = `FLEET DIRECTORY [${items.length}/${this.cards.length}]`;
+
+                if (items.length === 0) {
+                    listEl.innerHTML = `<div class="p-4 text-center text-white/40">NO MONOLITHS FOUND</div>`;
+                    return;
+                }
+
+                listEl.innerHTML = items.map(c => `
+                    <div class="p-2 border border-white/10 hover:border-cyan-400 bg-black/40 rounded-sm flex items-center justify-between gap-2 cursor-pointer transition-colors group" onclick="window.warpToMonolith('${c.id}')">
+                        <div class="overflow-hidden flex-1">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[9px] font-bold text-cyan-400">${c.id}</span>
+                                <span class="text-[9px] px-1 bg-white/10 rounded-none text-white/80">${c.isVideo ? 'VID' : 'IMG'}</span>
+                            </div>
+                            <div class="text-[11px] font-bold text-white truncate group-hover:text-cyan-300">${c.title}</div>
+                            <div class="text-[9px] opacity-50">${c.orbitRadius.toFixed(1)} AU • ${c.aspectLabel}</div>
+                        </div>
+                        <button class="px-2 py-1 bg-cyan-400/20 text-cyan-400 border border-cyan-400/40 text-[9px] hover:bg-cyan-400 hover:text-black transition-colors uppercase font-bold">
+                            WARP
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            performRaycastSelection(isClick) {
+                if (this.isPointerLocked) {
+                    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+                } else {
+                    this.raycaster.setFromCamera(this.mouseNDC, this.camera);
+                }
+
+                const meshesToTest = [];
+                for (let i = 0; i < this.cards.length; i++) {
+                    meshesToTest.push(this.cards[i].frontFace, this.cards[i].backFace, this.cards[i].coreMesh);
+                }
+
+                const intersects = this.raycaster.intersectObjects(meshesToTest, false);
+                const domEl = this.renderer.domElement;
+
+                if (intersects.length > 0) {
+                    const hit = intersects[0].object;
+                    const card = hit.userData.card;
+
+                    if (card) {
+                        domEl.style.cursor = 'pointer';
+                        if (isClick) {
+                            this.handleCardClick(card);
+                        } else if (!this.inspectedCard) {
+                            this.updateTelemetryHUD(card);
+                        }
+                        return;
+                    }
+                }
+
+                domEl.style.cursor = 'default';
+                if (isClick) {
+                    this.handleCardClick(null);
+                } else if (!this.inspectedCard) {
+                    this.updateTelemetryHUD(null);
+                }
+            }
+
+            updateGhostNavigation(dt) {
+                this.cameraYaw += (this.targetYaw - this.cameraYaw) * Math.min(1, dt * 14.0);
+                this.cameraPitch += (this.targetPitch - this.cameraPitch) * Math.min(1, dt * 14.0);
+
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                euler.y = this.cameraYaw;
+                euler.x = this.cameraPitch;
+                this.camera.quaternion.setFromEuler(euler);
+
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+                const up = new THREE.Vector3(0, 1, 0);
+
+                const accel = 52.0;
+                if (this.moveInput.forward !== 0) this.cameraVelocity.addScaledVector(forward, this.moveInput.forward * accel * dt);
+                if (this.moveInput.right !== 0) this.cameraVelocity.addScaledVector(right, this.moveInput.right * accel * dt);
+                if (this.moveInput.up !== 0) this.cameraVelocity.addScaledVector(up, this.moveInput.up * accel * dt);
+
+                this.camera.position.addScaledVector(this.cameraVelocity, dt);
+                this.cameraVelocity.multiplyScalar(Math.pow(0.08, dt));
+            }
+
+            updateMediaMonoliths(dt) {
+                const targetPos = new THREE.Vector3();
+                const targetQuat = new THREE.Quaternion();
+                const lookMatrix = new THREE.Matrix4();
+                const cameraUp = new THREE.Vector3(0, 1, 0);
+                const vFovRad = (this.camera.fov * Math.PI) / 180;
+
+                for (let i = 0; i < this.cards.length; i++) {
+                    const card = this.cards[i];
+
+                    if (card.state === 0) {
+                        this.computeOrbitalTransform(card, dt, targetPos);
+                        card.group.position.lerp(targetPos, Math.min(1, dt * 6.0));
+                        card.group.rotation.x += card.tumbleVel.x * dt;
+                        card.group.rotation.y += (card.angularSpeed * 0.8 + card.tumbleVel.y) * dt;
+                        card.group.rotation.z += card.tumbleVel.z * dt;
+                    } else if (card.state === 1) {
+                        card.group.position.lerp(card.anchoredPosition, Math.min(1, dt * 8.0));
+                        lookMatrix.lookAt(this.camera.position, card.group.position, new THREE.Vector3(0, 1, 0));
+                        targetQuat.setFromRotationMatrix(lookMatrix);
+                        card.group.quaternion.slerp(targetQuat, Math.min(1, dt * 6.5));
+                    } else if (card.state === 2) {
+                        const desiredViewportFraction = 0.50;
+                        const inspectDistance = Math.max(
+                            4.5,
+                            (card.height / desiredViewportFraction) / (2.0 * Math.tan(vFovRad * 0.5))
+                        );
+
+                        const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                        targetPos.copy(this.camera.position).addScaledVector(camForward, inspectDistance);
+
+                        card.group.position.lerp(targetPos, Math.min(1, dt * 7.5));
+                        lookMatrix.lookAt(this.camera.position, card.group.position, cameraUp);
+                        targetQuat.setFromRotationMatrix(lookMatrix);
+                        card.group.quaternion.slerp(targetQuat, Math.min(1, dt * 9.0));
+                    }
+                }
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+
+                const dt = Math.min(this.clock.getDelta(), 0.1);
+                const elapsedTime = this.clock.getElapsedTime();
+
+                this.updateSpacetimeRupture(dt, elapsedTime);
+                this.polarityLerp += (this.polarity - this.polarityLerp) * Math.min(1, dt * 6.0);
+                this.currentVoidColor.lerpColors(this.blackVoidColor, this.whiteVoidColor, this.polarityLerp);
+                this.scene.background.copy(this.currentVoidColor);
+                this.scene.fog.color.copy(this.currentVoidColor);
+
+                this.accretionUniforms.uTime.value = elapsedTime;
+                this.accretionUniforms.uPolarity.value = this.polarityLerp;
+                this.accretionUniforms.uRupture.value = this.ruptureIntensity;
+                this.dustPoints.rotation.y = elapsedTime * 0.018;
+
+                // Dynamic LOD texture update with camera distance throttling
+                this.mediaFactory.update(elapsedTime, this.camera.position);
+                this.updateGhostNavigation(dt);
+                this.updateMediaMonoliths(dt);
+                this.performRaycastSelection(false);
+
+                this.ruptureUniforms.uTime.value = elapsedTime;
+                this.ruptureUniforms.uRupture.value = this.ruptureIntensity;
+                this.ruptureUniforms.uPolarity.value = this.polarityLerp;
+
+                this.renderer.setRenderTarget(this.renderTarget);
+                this.renderer.render(this.scene, this.camera);
+                this.renderer.setRenderTarget(null);
+                this.renderer.render(this.postScene, this.postCamera);
+            }
+
+            randomRange(min, max) {
+                return min + Math.random() * (max - min);
+            }
+        }
+
+        let galleryInstance = null;
+        window.onload = function () {
+            galleryInstance = new OrbitalSpaceGallery();
+            window.warpToMonolith = (serialId) => {
+                const card = galleryInstance.cards.find(c => c.id === serialId);
+                if (card) galleryInstance.warpCameraToCard(card);
+            };
+        };
     </script>
 </body>
 </html>

@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SINGULARITY // COMMAND ARCHIVE TERMINAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hud-color: rgba(244, 244, 246, 0.90);
+            --hud-dim: rgba(244, 244, 246, 0.45);
+            --hud-border: rgba(244, 244, 246, 0.16);
+            --hud-bg: rgba(9, 9, 14, 0.82);
+            --accent: #00f0ff;
+            --accent-pink: #ff0055;
+            --accent-amber: #ffaa00;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background-color: #040407;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--hud-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .corner-bracket {
+            position: relative;
+        }
+        .corner-bracket::before,
+        .corner-bracket::after {
+            content: '';
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            border-color: var(--hud-color);
+            pointer-events: none;
+            transition: border-color 0.2s ease;
+        }
+        .corner-bracket::before {
+            top: -1px;
+            left: -1px;
+            border-top: 1.5px solid currentColor;
+            border-left: 1.5px solid currentColor;
+        }
+        .corner-bracket::after {
+            bottom: -1px;
+            right: -1px;
+            border-bottom: 1.5px solid currentColor;
+            border-right: 1.5px solid currentColor;
+        }
+        .hud-panel {
+            background: var(--hud-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--hud-border);
+        }
+        .hud-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--hud-border);
+            color: var(--hud-color);
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+        }
+        .hud-btn:hover {
+            border-color: var(--accent);
+            color: #ffffff;
+            box-shadow: 0 0 14px rgba(0, 240, 255, 0.25);
+            background: rgba(0, 240, 255, 0.08);
+            transform: translateY(-1px);
+        }
+        .hud-btn:active { transform: translateY(0); }
+        .hud-btn-primary {
+            background: rgba(0, 240, 255, 0.15);
+            border-color: var(--accent);
+            color: #00f0ff;
+        }
+        .hud-btn-primary:hover {
+            background: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.45);
+        }
+        .hud-btn-danger {
+            background: rgba(255, 0, 85, 0.12);
+            border-color: rgba(255, 0, 85, 0.5);
+            color: #ff0055;
+        }
+        .hud-btn-danger:hover {
+            background: rgba(255, 0, 85, 0.25);
+            border-color: #ff0055;
+            box-shadow: 0 0 16px rgba(255, 0, 85, 0.35);
+        }
+        .hud-input {
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid var(--hud-border);
+            color: var(--hud-color);
+            padding: 0.5rem 0.65rem;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            width: 100%;
+            transition: border-color 0.2s ease;
+        }
+        .hud-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+        }
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.15) 50%,
+                rgba(0, 0, 0, 0.15)
+            );
+            background-size: 100% 4px;
+            opacity: 0.4;
+        }
+        .dropzone-active {
+            border-color: var(--accent) !important;
+            background: rgba(0, 240, 255, 0.08) !important;
+            box-shadow: inset 0 0 25px rgba(0, 240, 255, 0.2) !important;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #07070a; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    </style>
+</head>
+<body class="p-4 md:p-6 pb-20">
+    <div class="scanlines"></div>
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Top Command Header -->
+        <header class="hud-panel corner-bracket p-4 md:p-5 rounded-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span id="sys-status-indicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h1 class="text-sm md:text-base font-bold tracking-[0.2em] uppercase text-white">
+                        SINGULARITY // ORBITAL ARCHIVE COMMAND
+                    </h1>
+                    <span class="text-[10px] px-1.5 py-0.5 border border-cyan-400/40 text-cyan-400 rounded-sm">BATCH INGEST</span>
+                </div>
+                <p class="text-[11px] opacity-60 mt-1">
+                    HIGH-CAPACITY BATCH MEDIA INGEST & KEPLERIAN SWARM DISPATCHER
+                </p>
+            </div>
+
+            <!-- Header Telemetry & Controls -->
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <div class="flex items-center gap-3 px-3 py-1.5 border border-white/10 rounded-sm text-[11px] bg-black/40 mr-2">
+                    <div>
+                        <span class="opacity-50">SYNC:</span>
+                        <span id="telemetry-sync-badge" class="font-bold text-emerald-400">CLOUD [FIRESTORE]</span>
+                    </div>
+                    <span class="opacity-30">|</span>
+                    <div>
+                        <span class="opacity-50">CLOUDINARY:</span>
+                        <span id="telemetry-cld-badge" class="font-bold text-cyan-400">PRESET [galleria65]</span>
+                    </div>
+                    <span class="opacity-30">|</span>
+                    <div>
+                        <span class="opacity-50">ACTIVE:</span>
+                        <span id="telemetry-count-badge" class="font-bold text-white">0 MONOLITHS</span>
+                    </div>
+                </div>
+
+                <a href="index.html" class="hud-btn hud-btn-primary flex items-center gap-1.5 rounded-sm">
+                    <span>[ 3D VIEWPORT ]</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                </a>
+                <button id="btn-open-config" class="hud-btn rounded-sm">
+                    [ CREDENTIALS & PRESETS ]
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Workspace Grid: Left Batch Ingest Station (6 Cols), Right Fleet Manager (6 Cols) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- LEFT COLUMN: Batch Media Ingest & Queue Station -->
+            <div class="lg:col-span-6 space-y-6">
+                <div class="hud-panel corner-bracket p-5 rounded-sm space-y-4">
+                    <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 bg-cyan-400"></span>
+                            <h2 class="text-xs font-bold tracking-widest uppercase">TACTICAL BATCH INGEST STATION</h2>
+                        </div>
+                        <span id="queue-count-badge" class="text-[10px] px-2 py-0.5 border border-cyan-400/40 text-cyan-400 rounded-sm font-mono">
+                            QUEUE: 0 FILES
+                        </span>
+                    </div>
+
+                    <!-- Ingest Mode Tabs -->
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <button id="tab-mode-upload" class="hud-btn hud-btn-primary text-center py-1.5 font-bold">
+                            MULTI-FILE BATCH UPLOAD
+                        </button>
+                        <button id="tab-mode-url" class="hud-btn text-center py-1.5 opacity-70">
+                            DIRECT URL LINK
+                        </button>
+                    </div>
+
+                    <!-- Mode A: Multi-File Drag & Drop Zone -->
+                    <div id="section-file-drop" class="space-y-4">
+                        <div id="dropzone" class="border-2 border-dashed border-white/20 hover:border-cyan-400/80 p-6 text-center rounded-sm transition-all cursor-pointer bg-black/30 group">
+                            <!-- Multi-file file input -->
+                            <input type="file" id="file-input" class="hidden" accept="image/*,video/*" multiple>
+                            <div class="space-y-2">
+                                <svg class="w-9 h-9 mx-auto opacity-50 group-hover:opacity-100 group-hover:text-cyan-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                <div class="text-xs font-semibold uppercase tracking-wider text-white">
+                                    DROP MULTIPLE IMAGES OR VIDEOS HERE
+                                </div>
+                                <div class="text-[10px] opacity-50">
+                                    Batch ingest supports unlimited files simultaneously (PNG, JPG, WebP, MP4, WebM)
+                                </div>
+                                <div class="pt-2">
+                                    <span class="hud-btn text-[10px] py-1 px-3">[ SELECT BATCH OF FILES ]</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BATCH QUEUE CONTAINER (Visible when items added) -->
+                        <div id="batch-queue-container" class="hidden space-y-3">
+                            <!-- Queue Controls & Auto-Distribution -->
+                            <div class="flex flex-wrap justify-between items-center gap-2 p-2.5 bg-black/50 border border-white/10 rounded-sm text-[10px]">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-cyan-400 uppercase">BATCH QUEUE</span>
+                                    <span id="queue-summary-text" class="opacity-70">(0 items pending)</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <button id="btn-balance-bands" class="hud-btn text-[9px] py-1 px-2" title="Distribute evenly across inner, mid, and outer orbits">
+                                        [ AUTO-BALANCE BANDS ]
+                                    </button>
+                                    <button id="btn-clear-queue" class="hud-btn hud-btn-danger text-[9px] py-1 px-2" title="Clear all queued items">
+                                        [ CLEAR QUEUE ]
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Scrollable Queue Item Cards -->
+                            <div id="queue-items-list" class="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                                <!-- Dynamic queue cards injected here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode B: Direct URL Input -->
+                    <div id="section-url-input" class="hidden space-y-3">
+                        <div>
+                            <label class="block text-[10px] opacity-60 uppercase mb-1">DIRECT MEDIA ASSET URL</label>
+                            <input type="url" id="input-direct-url" class="hud-input" placeholder="https://res.cloudinary.com/... or https://images.unsplash.com/...">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] opacity-60 uppercase mb-1">MEDIA TYPE</label>
+                                <select id="select-direct-type" class="hud-input">
+                                    <option value="image">IMAGE STILL</option>
+                                    <option value="video">VIDEO STREAM</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] opacity-60 uppercase mb-1">ASPECT RATIO PROFILE</label>
+                                <select id="select-direct-aspect" class="hud-input">
+                                    <option value="16:9">16:9 WIDE</option>
+                                    <option value="9:16">9:16 VERTICAL</option>
+                                    <option value="4:3">4:3 ARCHIVE</option>
+                                    <option value="1:1">1:1 MONOLITH</option>
+                                    <option value="21:9">21:9 ANAMORPHIC</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] opacity-60 uppercase mb-1">MONOLITH TITLE</label>
+                                <input type="text" id="input-direct-title" class="hud-input" placeholder="ORBITAL CONSTRUCT">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] opacity-60 uppercase mb-1">ORBITAL BAND</label>
+                                <select id="select-direct-band" class="hud-input">
+                                    <option value="inner">INNER RING (18-30 AU)</option>
+                                    <option value="mid" selected>MID ORBIT (32-50 AU)</option>
+                                    <option value="outer">OUTER BELT (52-80 AU)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overall Batch Progress Bar -->
+                    <div id="batch-progress-container" class="hidden space-y-1.5 p-3.5 border border-cyan-400/40 bg-black/70 rounded-sm">
+                        <div class="flex justify-between text-[10px] font-mono">
+                            <span id="batch-progress-status" class="text-cyan-400 font-bold uppercase">INGESTING BATCH TO CLOUDINARY...</span>
+                            <span id="batch-progress-percent" class="font-bold text-white">0%</span>
+                        </div>
+                        <div class="w-full bg-white/10 h-2.5 rounded-none overflow-hidden">
+                            <div id="batch-progress-bar" class="h-full bg-cyan-400 transition-all duration-150" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-[9px] opacity-75 font-mono">
+                            <span id="batch-progress-items">0 / 0 MONOLITHS DISPATCHED</span>
+                            <span id="batch-progress-speed">CONCURRENCY: 3 WORKERS // SYNC: FIRESTORE</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Trigger -->
+                    <button id="btn-dispatch-batch" class="w-full hud-btn hud-btn-primary py-3.5 rounded-sm font-bold tracking-widest text-xs flex justify-center items-center gap-2">
+                        <span>[ INGEST & DISPATCH BATCH TO ORBIT ]</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Fleet Archive Inventory -->
+            <div class="lg:col-span-6 space-y-4">
+                <div class="hud-panel corner-bracket p-5 rounded-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-emerald-400"></span>
+                                <h2 class="text-xs font-bold tracking-widest uppercase">ACTIVE ORBITAL FLEET</h2>
+                            </div>
+                            <span class="text-[10px] opacity-50">REAL-TIME SYNCHRONIZED ARCHIVE REPOSITORY</span>
+                        </div>
+
+                        <!-- Filter Tabs -->
+                        <div class="flex items-center gap-1.5 text-[10px]">
+                            <button data-filter="all" class="btn-filter hud-btn py-1 px-2.5 hud-btn-primary">ALL</button>
+                            <button data-filter="video" class="btn-filter hud-btn py-1 px-2.5">VIDEOS</button>
+                            <button data-filter="image" class="btn-filter hud-btn py-1 px-2.5">IMAGES</button>
+                            <button data-filter="inner" class="btn-filter hud-btn py-1 px-2.5">INNER</button>
+                            <button data-filter="mid" class="btn-filter hud-btn py-1 px-2.5">MID</button>
+                            <button data-filter="outer" class="btn-filter hud-btn py-1 px-2.5">OUTER</button>
+                        </div>
+                    </div>
+
+                    <!-- Search and Actions -->
+                    <div class="flex justify-between items-center gap-3 text-xs">
+                        <div class="relative flex-1">
+                            <input type="text" id="search-monoliths" class="hud-input pl-8 py-1.5" placeholder="SEARCH TITLE, SERIAL, PUBLIC ID...">
+                            <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                        <button id="btn-seed-defaults" class="hud-btn text-[10px] py-1.5 whitespace-nowrap" title="Restore seed items">
+                            [ RESTORE SEED FLEET ]
+                        </button>
+                    </div>
+
+                    <!-- Monoliths List Grid -->
+                    <div id="monoliths-list" class="space-y-3 max-h-[640px] overflow-y-auto pr-1">
+                        <div class="text-center py-12 text-xs opacity-50 font-mono">
+                            LOADING ORBITAL REPOSITORY...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- CREDENTIALS & PRESETS CONFIGURATION MODAL -->
+    <div id="config-modal" class="fixed inset-0 z-40 hidden items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="hud-panel corner-bracket max-w-2xl w-full p-6 rounded-sm text-xs space-y-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 class="text-sm font-bold tracking-widest uppercase text-cyan-400">
+                        SYSTEM CONFIGURATION // FIREBASE & CLOUDINARY
+                    </h3>
+                    <p class="text-[10px] opacity-60">CLIENT-SAFE ZERO-SECRET AUTHENTICATION ARCHITECTURE</p>
+                </div>
+                <button id="btn-close-config" class="hud-btn py-1 px-3">[ CLOSE X ]</button>
+            </div>
+
+            <!-- SECTION 1: Cloudinary Unsigned Upload Preset -->
+            <div class="space-y-3 p-4 border border-cyan-400/25 bg-black/40 rounded-sm">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold tracking-wider text-cyan-300 uppercase">1. Cloudinary Direct Unsigned Preset</span>
+                    <span class="text-[10px] px-2 py-0.5 border border-cyan-400/40 text-cyan-400 rounded-sm">CLIENT-SIDE SAFE</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">CLOUDINARY CLOUD NAME</label>
+                        <input type="text" id="cfg-cld-name" class="hud-input font-bold" placeholder="dqcatr0ze">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">UNSIGNED UPLOAD PRESET</label>
+                        <input type="text" id="cfg-cld-preset" class="hud-input font-bold text-cyan-400" placeholder="galleria65">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: Firebase Client SDK Configuration -->
+            <div class="space-y-3 p-4 border border-emerald-400/25 bg-black/40 rounded-sm">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold tracking-wider text-emerald-300 uppercase">2. Firebase Client Config (Firestore)</span>
+                    <span class="text-[10px] px-2 py-0.5 border border-emerald-400/40 text-emerald-400 rounded-sm">PUBLIC CREDENTIALS</span>
+                </div>
+                <div>
+                    <label class="block text-[10px] opacity-60 uppercase mb-1 font-bold text-emerald-400">
+                        FAST PASTE: PASTE ENTIRE FIREBASE CONFIG OBJECT
+                    </label>
+                    <textarea id="cfg-fb-paste" rows="2" class="hud-input text-[10px] font-mono" placeholder="const firebaseConfig = { ... }"></textarea>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">API KEY</label>
+                        <input type="text" id="cfg-fb-key" class="hud-input">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">PROJECT ID</label>
+                        <input type="text" id="cfg-fb-project" class="hud-input font-bold">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="flex justify-between items-center border-t border-white/10 pt-4">
+                <button id="btn-reset-config" class="hud-btn text-rose-400 border-rose-400/40 text-[10px] py-2">
+                    [ RESTORE INITIAL DEFAULTS ]
+                </button>
+                <button id="btn-save-config" class="hud-btn hud-btn-primary font-bold text-xs py-2 px-6">
+                    [ SAVE CONFIGURATION ]
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div id="preview-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/90 backdrop-blur-lg">
+        <div class="hud-panel corner-bracket max-w-4xl w-full p-4 rounded-sm space-y-3">
+            <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                <span id="preview-modal-title" class="text-xs font-bold tracking-widest uppercase text-cyan-400">
+                    MONOLITH PREVIEW
+                </span>
+                <button id="btn-close-preview" class="hud-btn text-xs py-1 px-3">[ CLOSE X ]</button>
+            </div>
+            <div id="preview-modal-content" class="w-full flex items-center justify-center min-h-[300px] max-h-[70vh] overflow-hidden bg-black/60"></div>
+            <div class="flex justify-between items-center text-[10px] opacity-70 font-mono">
+                <span id="preview-modal-meta">16:9 // 42.8 AU</span>
+                <div class="flex items-center gap-3">
+                    <button id="preview-modal-btn-edit" class="hud-btn text-amber-400 hover:border-amber-400 text-[10px] py-1 px-3">[ EDIT PARAMETERS ]</button>
+                    <a id="preview-modal-link" href="#" target="_blank" class="text-cyan-400 underline">[ OPEN FULL ASSET ]</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TACTICAL EDIT MONOLITH MODAL -->
+    <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="hud-panel corner-bracket max-w-2xl w-full p-5 rounded-sm space-y-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                    <h3 id="edit-modal-header" class="text-xs font-bold tracking-widest uppercase text-cyan-400">
+                        EDIT MONOLITH PARAMETERS // MNL-00
+                    </h3>
+                    <p class="text-[10px] opacity-60">UPDATE CELESTIAL METADATA & ORBITAL TRAJECTORY</p>
+                </div>
+                <button id="btn-close-edit" class="hud-btn text-xs py-1 px-3">[ CLOSE X ]</button>
+            </div>
+
+            <input type="hidden" id="edit-monolith-id">
+
+            <!-- Media Preview & Dimensions Box -->
+            <div class="flex gap-4 p-3 bg-black/50 border border-white/10 rounded-sm items-center">
+                <div id="edit-preview-media" class="w-20 h-16 bg-black border border-white/20 rounded-sm flex-shrink-0 overflow-hidden flex items-center justify-center">
+                    <!-- Thumbnail preview -->
+                </div>
+                <div class="space-y-1 text-xs overflow-hidden flex-1">
+                    <div id="edit-preview-serial" class="font-bold text-cyan-400 font-mono text-xs">MNL-01</div>
+                    <div id="edit-preview-sub" class="text-[10px] opacity-60 truncate">cloudinary://asset</div>
+                </div>
+            </div>
+
+            <!-- Form Inputs -->
+            <div class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">MONOLITH SERIAL CODE</label>
+                        <input type="text" id="edit-input-serial" class="hud-input font-bold text-cyan-400">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">DESIGNATION / TITLE</label>
+                        <input type="text" id="edit-input-title" class="hud-input font-bold text-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] opacity-60 uppercase mb-1">ARCHIVE LOG / TELEMETRY NOTES</label>
+                    <textarea id="edit-input-description" rows="2" class="hud-input text-[11px]"></textarea>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">ASPECT RATIO PROFILE</label>
+                        <select id="edit-select-aspect" class="hud-input">
+                            <option value="16:9">16:9 WIDE</option>
+                            <option value="9:16">9:16 VERTICAL</option>
+                            <option value="4:3">4:3 ARCHIVE</option>
+                            <option value="1:1">1:1 MONOLITH</option>
+                            <option value="21:9">21:9 ANAMORPHIC</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">ORBITAL BAND</label>
+                        <select id="edit-select-band" class="hud-input">
+                            <option value="inner">INNER RING (18-30 AU)</option>
+                            <option value="mid">MID ORBIT (32-50 AU)</option>
+                            <option value="outer">OUTER BELT (52-80 AU)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">ORBIT RADIUS (AU)</label>
+                        <input type="number" id="edit-input-radius" step="0.5" min="15" max="300" class="hud-input font-mono">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">MEDIA TYPE</label>
+                        <select id="edit-select-type" class="hud-input">
+                            <option value="image">IMAGE STILL</option>
+                            <option value="video">VIDEO STREAM</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] opacity-60 uppercase mb-1">CLOUDINARY PUBLIC ID</label>
+                        <input type="text" id="edit-input-publicid" class="hud-input font-mono text-[11px]">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] opacity-60 uppercase mb-1">DIRECT ASSET URL</label>
+                    <input type="url" id="edit-input-url" class="hud-input font-mono text-[11px]">
+                </div>
+            </div>
+
+            <!-- Footer Action Buttons -->
+            <div class="flex justify-between items-center border-t border-white/10 pt-4">
+                <button id="btn-cancel-edit" class="hud-btn text-xs py-2 px-4">[ CANCEL ]</button>
+                <button id="btn-save-edit" class="hud-btn hud-btn-primary font-bold text-xs py-2 px-6 flex items-center gap-2">
+                    <span>[ SAVE MODIFICATIONS ]</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN BATCH APPLICATION LOGIC -->
+    <script type="module">
+        import { getSystemConfig, saveSystemConfig, ASPECT_RATIOS } from './js/config.js';
+        import { cloudinaryService } from './js/cloudinary-service.js';
+        import { firebaseService } from './js/firebase-service.js';
+
+        // State
+        let currentMonoliths = [];
+        let batchQueue = []; // Array of queued files with preflight metadata
+        let isUploading = false;
+        let activeFilter = 'all';
+        let searchQuery = '';
+
+        // Elements
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+        const queueContainer = document.getElementById('batch-queue-container');
+        const queueItemsList = document.getElementById('queue-items-list');
+        const queueCountBadge = document.getElementById('queue-count-badge');
+        const queueSummaryText = document.getElementById('queue-summary-text');
+        const btnBalanceBands = document.getElementById('btn-balance-bands');
+        const btnClearQueue = document.getElementById('btn-clear-queue');
+        const btnDispatchBatch = document.getElementById('btn-dispatch-batch');
+
+        const tabModeUpload = document.getElementById('tab-mode-upload');
+        const tabModeUrl = document.getElementById('tab-mode-url');
+        const sectionFileDrop = document.getElementById('section-file-drop');
+        const sectionUrlInput = document.getElementById('section-url-input');
+        const inputDirectUrl = document.getElementById('input-direct-url');
+        const selectDirectType = document.getElementById('select-direct-type');
+        const selectDirectAspect = document.getElementById('select-direct-aspect');
+        const inputDirectTitle = document.getElementById('input-direct-title');
+        const selectDirectBand = document.getElementById('select-direct-band');
+
+        const batchProgressContainer = document.getElementById('batch-progress-container');
+        const batchProgressBar = document.getElementById('batch-progress-bar');
+        const batchProgressPercent = document.getElementById('batch-progress-percent');
+        const batchProgressStatus = document.getElementById('batch-progress-status');
+        const batchProgressItems = document.getElementById('batch-progress-items');
+
+        const monolithsList = document.getElementById('monoliths-list');
+        const searchInput = document.getElementById('search-monoliths');
+        const telemetrySyncBadge = document.getElementById('telemetry-sync-badge');
+        const telemetryCldBadge = document.getElementById('telemetry-cld-badge');
+        const telemetryCountBadge = document.getElementById('telemetry-count-badge');
+        const sysStatusIndicator = document.getElementById('sys-status-indicator');
+
+        // Config Modal Elements
+        const configModal = document.getElementById('config-modal');
+        const btnOpenConfig = document.getElementById('btn-open-config');
+        const btnCloseConfig = document.getElementById('btn-close-config');
+        const btnSaveConfig = document.getElementById('btn-save-config');
+        const btnResetConfig = document.getElementById('btn-reset-config');
+        const btnSeedDefaults = document.getElementById('btn-seed-defaults');
+        const cfgCldName = document.getElementById('cfg-cld-name');
+        const cfgCldPreset = document.getElementById('cfg-cld-preset');
+        const cfgFbPaste = document.getElementById('cfg-fb-paste');
+        const cfgFbKey = document.getElementById('cfg-fb-key');
+        const cfgFbProject = document.getElementById('cfg-fb-project');
+
+        // Preview Modal Elements
+        const previewModal = document.getElementById('preview-modal');
+        const btnClosePreview = document.getElementById('btn-close-preview');
+        const previewModalTitle = document.getElementById('preview-modal-title');
+        const previewModalContent = document.getElementById('preview-modal-content');
+        const previewModalMeta = document.getElementById('preview-modal-meta');
+        const previewModalLink = document.getElementById('preview-modal-link');
+        const previewModalBtnEdit = document.getElementById('preview-modal-btn-edit');
+        let currentInspectedMonolithId = null;
+
+        // Edit Modal Elements
+        const editModal = document.getElementById('edit-modal');
+        const editModalHeader = document.getElementById('edit-modal-header');
+        const btnCloseEdit = document.getElementById('btn-close-edit');
+        const btnCancelEdit = document.getElementById('btn-cancel-edit');
+        const btnSaveEdit = document.getElementById('btn-save-edit');
+        const editMonolithId = document.getElementById('edit-monolith-id');
+        const editPreviewMedia = document.getElementById('edit-preview-media');
+        const editPreviewSerial = document.getElementById('edit-preview-serial');
+        const editPreviewSub = document.getElementById('edit-preview-sub');
+        const editInputSerial = document.getElementById('edit-input-serial');
+        const editInputTitle = document.getElementById('edit-input-title');
+        const editInputDescription = document.getElementById('edit-input-description');
+        const editSelectAspect = document.getElementById('edit-select-aspect');
+        const editSelectBand = document.getElementById('edit-select-band');
+        const editInputRadius = document.getElementById('edit-input-radius');
+        const editSelectType = document.getElementById('edit-select-type');
+        const editInputPublicId = document.getElementById('edit-input-publicid');
+        const editInputUrl = document.getElementById('edit-input-url');
+
+        function init() {
+            refreshTelemetryHeader();
+
+            firebaseService.subscribe((monoliths, isCloud) => {
+                currentMonoliths = monoliths || [];
+                renderMonoliths();
+                refreshTelemetryHeader();
+            });
+
+            window.addEventListener('singularity-sync-status', () => refreshTelemetryHeader());
+
+            setupEventHandlers();
+        }
+
+        function refreshTelemetryHeader() {
+            const sys = getSystemConfig();
+            if (firebaseService.isCloudConnected) {
+                telemetrySyncBadge.textContent = 'CLOUD [FIRESTORE]';
+                telemetrySyncBadge.className = 'font-bold text-emerald-400';
+                sysStatusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+            } else {
+                telemetrySyncBadge.textContent = 'LOCAL ARCHIVE';
+                telemetrySyncBadge.className = 'font-bold text-amber-400';
+                sysStatusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+            }
+
+            telemetryCldBadge.textContent = `PRESET [${sys.cloudinary.uploadPreset}]`;
+            telemetryCldBadge.className = 'font-bold text-cyan-400';
+            telemetryCountBadge.textContent = `${currentMonoliths.length} MONOLITHS`;
+        }
+
+        function setupEventHandlers() {
+            // Mode switching
+            tabModeUpload.addEventListener('click', () => {
+                tabModeUpload.classList.add('hud-btn-primary');
+                tabModeUpload.classList.remove('opacity-70');
+                tabModeUrl.classList.remove('hud-btn-primary');
+                tabModeUrl.classList.add('opacity-70');
+                sectionFileDrop.classList.remove('hidden');
+                sectionUrlInput.classList.add('hidden');
+            });
+
+            tabModeUrl.addEventListener('click', () => {
+                tabModeUrl.classList.add('hud-btn-primary');
+                tabModeUrl.classList.remove('opacity-70');
+                tabModeUpload.classList.remove('hud-btn-primary');
+                tabModeUpload.classList.add('opacity-70');
+                sectionUrlInput.classList.remove('hidden');
+                sectionFileDrop.classList.add('hidden');
+            });
+
+            // Dropzone & File Selection
+            fileInput.addEventListener('click', (e) => e.stopPropagation());
+            dropzone.addEventListener('click', () => fileInput.click());
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('dropzone-active');
+                });
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('dropzone-active');
+                });
+            });
+
+            dropzone.addEventListener('drop', (e) => {
+                const files = Array.from(e.dataTransfer.files || []);
+                if (files.length > 0) addFilesToBatchQueue(files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length > 0) addFilesToBatchQueue(files);
+                fileInput.value = ''; // Reset so same files can be re-selected if needed
+            });
+
+            // Batch Actions
+            btnBalanceBands.addEventListener('click', () => {
+                const bands = ['inner', 'mid', 'outer'];
+                batchQueue.forEach((item, idx) => {
+                    item.orbitBand = bands[idx % bands.length];
+                });
+                renderBatchQueue();
+            });
+
+            btnClearQueue.addEventListener('click', () => {
+                if (isUploading) return;
+                batchQueue = [];
+                renderBatchQueue();
+            });
+
+            btnDispatchBatch.addEventListener('click', handleDispatchBatch);
+
+            // Filter Buttons
+            document.querySelectorAll('.btn-filter').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('hud-btn-primary'));
+                    btn.classList.add('hud-btn-primary');
+                    activeFilter = btn.dataset.filter;
+                    renderMonoliths();
+                });
+            });
+
+            // Search query
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                renderMonoliths();
+            });
+
+            // Config Modal Triggers
+            btnOpenConfig.addEventListener('click', openConfigModal);
+            btnCloseConfig.addEventListener('click', closeConfigModal);
+            btnSaveConfig.addEventListener('click', saveConfigFromModal);
+            btnResetConfig.addEventListener('click', resetConfigDefaults);
+            btnSeedDefaults.addEventListener('click', async () => {
+                if (confirm('Restore initial seed fleet into the archive?')) {
+                    await firebaseService.resetToDefaults();
+                }
+            });
+
+            cfgFbPaste.addEventListener('input', handleFirebaseConfigPaste);
+            btnClosePreview.addEventListener('click', () => previewModal.classList.add('hidden'));
+
+            // Edit Modal Handlers
+            btnCloseEdit.addEventListener('click', closeEditModal);
+            btnCancelEdit.addEventListener('click', closeEditModal);
+            btnSaveEdit.addEventListener('click', handleSaveMonolithEdit);
+            editInputUrl.addEventListener('input', updateEditModalPreview);
+            editSelectType.addEventListener('change', updateEditModalPreview);
+            previewModalBtnEdit.addEventListener('click', () => {
+                previewModal.classList.add('hidden');
+                if (currentInspectedMonolithId) {
+                    window.openEditModal(currentInspectedMonolithId);
+                }
+            });
+        }
+
+        // BATCH QUEUE MANAGEMENT
+        async function addFilesToBatchQueue(files) {
+            const bands = ['inner', 'mid', 'outer'];
+            let baseSerialCount = currentMonoliths.length + batchQueue.length + 1;
+
+            for (const file of files) {
+                try {
+                    // Pre-flight analyze
+                    const meta = await cloudinaryService.analyzeLocalMedia(file);
+                    const serial = `MNL-${String(baseSerialCount).padStart(2, '0')} // 0x${((baseSerialCount * 439) + Math.floor(Math.random() * 255)).toString(16).toUpperCase()}`;
+                    const cleanTitle = (file.name || 'MONOLITH').replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").toUpperCase();
+                    const band = bands[(baseSerialCount - 1) % bands.length];
+
+                    batchQueue.push({
+                        id: 'queue-' + Math.random().toString(36).substr(2, 9),
+                        file,
+                        serial,
+                        title: cleanTitle,
+                        description: `${meta.width}x${meta.height} ${meta.isVideo ? 'Video' : 'Image'} Asset`,
+                        aspectRatio: meta.detectedAspect || '16:9',
+                        orbitBand: band,
+                        isVideo: meta.isVideo,
+                        previewUrl: meta.previewUrl,
+                        width: meta.width,
+                        height: meta.height,
+                        status: 'QUEUED', // 'QUEUED' | 'UPLOADING' | 'COMMITTED' | 'ERROR'
+                        progress: 0,
+                        error: null
+                    });
+
+                    baseSerialCount++;
+                } catch (err) {
+                    console.warn('Error reading media file for queue:', file.name, err);
+                    const serial = `MNL-${String(baseSerialCount).padStart(2, '0')} // 0x${((baseSerialCount * 439) + Math.floor(Math.random() * 255)).toString(16).toUpperCase()}`;
+                    const cleanTitle = (file.name || 'MONOLITH').replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ").toUpperCase();
+                    const band = bands[(baseSerialCount - 1) % bands.length];
+                    batchQueue.push({
+                        id: 'queue-' + Math.random().toString(36).substr(2, 9),
+                        file,
+                        serial,
+                        title: cleanTitle,
+                        description: `Media Asset`,
+                        aspectRatio: '16:9',
+                        orbitBand: band,
+                        isVideo: false,
+                        previewUrl: '',
+                        width: 1200,
+                        height: 800,
+                        status: 'QUEUED',
+                        progress: 0,
+                        error: null
+                    });
+                    baseSerialCount++;
+                }
+            }
+
+            renderBatchQueue();
+        }
+
+        function renderBatchQueue() {
+            if (batchQueue.length === 0) {
+                queueContainer.classList.add('hidden');
+                queueCountBadge.textContent = 'QUEUE: 0 FILES';
+                return;
+            }
+
+            queueContainer.classList.remove('hidden');
+            queueCountBadge.textContent = `QUEUE: ${batchQueue.length} FILES`;
+            queueSummaryText.textContent = `(${batchQueue.length} monoliths pending dispatch)`;
+
+            queueItemsList.innerHTML = batchQueue.map((item, idx) => {
+                const statusColor = item.status === 'COMMITTED' ? 'text-emerald-400' :
+                                    (item.status === 'UPLOADING' ? 'text-cyan-400' :
+                                    (item.status === 'ERROR' ? 'text-rose-400' : 'text-white/60'));
+
+                let mediaThumb = '';
+                if (item.isVideo) {
+                    mediaThumb = `<video src="${item.previewUrl}" class="w-full h-full object-cover" muted autoplay loop></video>`;
+                } else {
+                    mediaThumb = `<img src="${item.previewUrl}" class="w-full h-full object-cover" alt="thumb">`;
+                }
+
+                return `
+                    <div id="queue-item-${idx}" class="hud-panel p-2.5 rounded-sm flex items-center gap-3 border border-white/10 hover:border-cyan-400/50 transition-all text-xs">
+                        <!-- Thumbnail -->
+                        <div class="w-14 h-12 bg-black border border-white/20 rounded-sm flex-shrink-0 overflow-hidden relative">
+                            ${mediaThumb}
+                            <span class="absolute bottom-0 right-0 px-1 py-0.2 bg-black/80 text-[7px] font-bold ${item.isVideo ? 'text-rose-400' : 'text-cyan-400'}">
+                                ${item.isVideo ? 'VID' : 'IMG'}
+                            </span>
+                        </div>
+
+                        <!-- Editable Metadata Fields -->
+                        <div class="flex-1 space-y-1 overflow-hidden">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-cyan-300 font-bold font-mono">${item.serial}</span>
+                                <input type="text" value="${item.title}" onchange="window.updateQueueItemTitle(${idx}, this.value)" class="hud-input py-0.5 px-1.5 text-[11px] font-bold text-white flex-1" placeholder="Title">
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px]">
+                                <select onchange="window.updateQueueItemAspect(${idx}, this.value)" class="hud-input py-0.5 px-1 text-[9px] w-28">
+                                    <option value="16:9" ${item.aspectRatio === '16:9' ? 'selected' : ''}>16:9 WIDE</option>
+                                    <option value="9:16" ${item.aspectRatio === '9:16' ? 'selected' : ''}>9:16 VERT</option>
+                                    <option value="4:3" ${item.aspectRatio === '4:3' ? 'selected' : ''}>4:3 ARCHIVE</option>
+                                    <option value="1:1" ${item.aspectRatio === '1:1' ? 'selected' : ''}>1:1 SQUARE</option>
+                                    <option value="21:9" ${item.aspectRatio === '21:9' ? 'selected' : ''}>21:9 ANAM</option>
+                                </select>
+                                <select onchange="window.updateQueueItemBand(${idx}, this.value)" class="hud-input py-0.5 px-1 text-[9px] w-28">
+                                    <option value="inner" ${item.orbitBand === 'inner' ? 'selected' : ''}>INNER RING</option>
+                                    <option value="mid" ${item.orbitBand === 'mid' ? 'selected' : ''}>MID ORBIT</option>
+                                    <option value="outer" ${item.orbitBand === 'outer' ? 'selected' : ''}>OUTER BELT</option>
+                                </select>
+                                <span id="queue-status-${idx}" class="font-mono ${statusColor} font-bold text-[9px] truncate">
+                                    ${item.status === 'UPLOADING' ? `TRANSMITTING [${item.progress}%]` : item.status}
+                                </span>
+                            </div>
+                            <!-- Mini Progress Track -->
+                            <div class="w-full bg-white/10 h-1 rounded-none overflow-hidden mt-1">
+                                <div id="queue-bar-${idx}" class="h-full bg-cyan-400 transition-all duration-100" style="width: ${item.progress || 0}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Remove Button -->
+                        ${item.status !== 'UPLOADING' ? `
+                            <button onclick="window.removeQueueItem(${idx})" class="text-rose-400 hover:text-white text-xs px-2 py-1 font-mono font-bold" title="Remove from queue">
+                                ✕
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.updateQueueItemTitle = (idx, val) => { if (batchQueue[idx]) batchQueue[idx].title = val; };
+        window.updateQueueItemAspect = (idx, val) => { if (batchQueue[idx]) batchQueue[idx].aspectRatio = val; };
+        window.updateQueueItemBand = (idx, val) => { if (batchQueue[idx]) batchQueue[idx].orbitBand = val; };
+        window.removeQueueItem = (idx) => {
+            if (isUploading) return;
+            batchQueue.splice(idx, 1);
+            renderBatchQueue();
+        };
+
+        // BATCH DISPATCH EXECUTION
+        async function handleDispatchBatch() {
+            const isDirectUrlMode = !sectionUrlInput.classList.contains('hidden');
+
+            if (isDirectUrlMode) {
+                const url = inputDirectUrl.value.trim();
+                if (!url) { alert('Please enter a media URL.'); return; }
+                const title = inputDirectTitle.value.trim() || 'ORBITAL CONSTRUCT';
+                const mediaType = selectDirectType.value;
+                const aspectRatio = selectDirectAspect.value;
+                const orbitBand = selectDirectBand.value;
+
+                await firebaseService.addMonolith({
+                    title,
+                    url,
+                    mediaType,
+                    aspectRatio,
+                    orbitBand,
+                    description: 'External Asset Link'
+                });
+
+                inputDirectUrl.value = '';
+                inputDirectTitle.value = '';
+                alert('Monolith dispatched to orbit!');
+                return;
+            }
+
+            if (batchQueue.length === 0) {
+                alert('Please select or drop images/videos into the batch queue first.');
+                return;
+            }
+
+            if (isUploading) return;
+            isUploading = true;
+            btnDispatchBatch.disabled = true;
+            btnDispatchBatch.classList.add('opacity-50');
+
+            batchProgressContainer.classList.remove('hidden');
+            batchProgressBar.style.width = '0%';
+            batchProgressPercent.textContent = '0%';
+            batchProgressStatus.textContent = `INGESTING BATCH (0 / ${batchQueue.length})...`;
+
+            let completedCount = 0;
+            const totalItems = batchQueue.length;
+
+            function updateOverallProgress() {
+                let totalPoints = 0;
+                const activeNames = [];
+                batchQueue.forEach((it) => {
+                    if (it.status === 'COMMITTED') totalPoints += 100;
+                    else if (it.status === 'UPLOADING') {
+                        totalPoints += (it.progress || 0);
+                        activeNames.push(`${it.serial} [${it.progress || 0}%]`);
+                    }
+                });
+                const overall = Math.min(100, Math.round(totalPoints / Math.max(1, totalItems)));
+                batchProgressBar.style.width = `${overall}%`;
+                batchProgressPercent.textContent = `${overall}%`;
+                batchProgressItems.textContent = `${completedCount} / ${totalItems} MONOLITHS COMMITTED`;
+                if (activeNames.length > 0) {
+                    batchProgressStatus.textContent = `TRANSMITTING: ${activeNames.slice(0, 3).join(' • ')}`;
+                } else {
+                    batchProgressStatus.textContent = `INGESTING BATCH (${completedCount} / ${totalItems})...`;
+                }
+            }
+
+            // Execute concurrent batch upload (3 parallel upload workers)
+            await cloudinaryService.uploadBatch(batchQueue, {
+                concurrency: 3,
+                onItemStart: (idx) => {
+                    batchQueue[idx].status = 'UPLOADING';
+                    batchQueue[idx].progress = 0;
+                    const statusEl = document.getElementById(`queue-status-${idx}`);
+                    if (statusEl) {
+                        statusEl.textContent = 'TRANSMITTING [0%]';
+                        statusEl.className = 'font-mono text-cyan-400 font-bold text-[9px] truncate';
+                    }
+                    const itemEl = document.getElementById(`queue-item-${idx}`);
+                    if (itemEl) {
+                        itemEl.classList.add('border-cyan-400', 'bg-cyan-950/20');
+                        itemEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                    updateOverallProgress();
+                },
+                onItemProgress: (idx, p) => {
+                    batchQueue[idx].progress = p.percent;
+                    const statusEl = document.getElementById(`queue-status-${idx}`);
+                    if (statusEl) statusEl.textContent = `TRANSMITTING [${p.percent}%]`;
+                    const barEl = document.getElementById(`queue-bar-${idx}`);
+                    if (barEl) barEl.style.width = `${p.percent}%`;
+                    updateOverallProgress();
+                },
+                onItemSuccess: async (idx, res, item) => {
+                    batchQueue[idx].status = 'COMMITTED';
+                    batchQueue[idx].progress = 100;
+                    completedCount++;
+
+                    const statusEl = document.getElementById(`queue-status-${idx}`);
+                    if (statusEl) {
+                        statusEl.textContent = 'COMMITTED [OK]';
+                        statusEl.className = 'font-mono text-emerald-400 font-bold text-[9px] truncate';
+                    }
+                    const barEl = document.getElementById(`queue-bar-${idx}`);
+                    if (barEl) {
+                        barEl.style.width = '100%';
+                        barEl.className = 'h-full bg-emerald-400 transition-all duration-150';
+                    }
+                    const itemEl = document.getElementById(`queue-item-${idx}`);
+                    if (itemEl) {
+                        itemEl.classList.remove('border-cyan-400', 'bg-cyan-950/20');
+                        itemEl.classList.add('border-emerald-400/40');
+                    }
+
+                    updateOverallProgress();
+
+                    // Commit directly to Firebase Firestore
+                    try {
+                        await firebaseService.addMonolith({
+                            serial: item.serial,
+                            title: item.title,
+                            description: item.description,
+                            mediaType: res.resourceType,
+                            url: res.secureUrl,
+                            cloudinaryPublicId: res.publicId,
+                            aspectRatio: item.aspectRatio,
+                            orbitBand: item.orbitBand
+                        });
+                    } catch (fsErr) {
+                        console.warn('Firestore addDoc error:', fsErr);
+                    }
+                },
+                onItemError: (idx, err) => {
+                    batchQueue[idx].status = 'ERROR';
+                    batchQueue[idx].error = err.message;
+                    completedCount++;
+
+                    const statusEl = document.getElementById(`queue-status-${idx}`);
+                    if (statusEl) {
+                        statusEl.textContent = `ERR: ${err.message || 'FAILED'}`;
+                        statusEl.className = 'font-mono text-rose-400 font-bold text-[9px] truncate';
+                    }
+                    const barEl = document.getElementById(`queue-bar-${idx}`);
+                    if (barEl) {
+                        barEl.style.width = '100%';
+                        barEl.className = 'h-full bg-rose-500';
+                    }
+
+                    updateOverallProgress();
+                }
+            });
+
+            batchProgressStatus.textContent = `BATCH INGEST COMPLETE [${completedCount} / ${totalItems}]`;
+            isUploading = false;
+            btnDispatchBatch.disabled = false;
+            btnDispatchBatch.classList.remove('opacity-50');
+
+            setTimeout(() => {
+                batchQueue = batchQueue.filter(item => item.status !== 'COMMITTED');
+                renderBatchQueue();
+                batchProgressContainer.classList.add('hidden');
+            }, 3000);
+        }
+
+        // FLEET INVENTORY RENDERING
+        function renderMonoliths() {
+            let filtered = currentMonoliths.filter(m => {
+                if (activeFilter === 'video' && m.mediaType !== 'video') return false;
+                if (activeFilter === 'image' && m.mediaType !== 'image') return false;
+                if (activeFilter === 'inner' && m.orbitBand !== 'inner') return false;
+                if (activeFilter === 'mid' && m.orbitBand !== 'mid') return false;
+                if (activeFilter === 'outer' && m.orbitBand !== 'outer') return false;
+
+                if (searchQuery) {
+                    const matchText = `${m.title} ${m.serial} ${m.description} ${m.cloudinaryPublicId}`.toLowerCase();
+                    return matchText.includes(searchQuery);
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                monolithsList.innerHTML = `
+                    <div class="hud-panel p-8 text-center text-xs opacity-50 rounded-sm">
+                        NO MONOLITHS MATCHING ACTIVE FILTER CRITERIA
+                    </div>
+                `;
+                return;
+            }
+
+            monolithsList.innerHTML = filtered.map(m => {
+                const isVideo = m.mediaType === 'video';
+                const bandColor = m.orbitBand === 'inner' ? 'text-amber-400 border-amber-400/40' : (m.orbitBand === 'outer' ? 'text-purple-400 border-purple-400/40' : 'text-cyan-400 border-cyan-400/40');
+                const aspectBadge = ASPECT_RATIOS[m.aspectRatio]?.label || m.aspectRatio;
+
+                let thumbHtml = '';
+                if (isVideo && m.url) {
+                    thumbHtml = `<video src="${m.url}" class="w-full h-full object-cover" muted autoplay loop></video>`;
+                } else if (m.url) {
+                    thumbHtml = `<img src="${m.url}" class="w-full h-full object-cover" loading="lazy" alt="${m.title}">`;
+                } else {
+                    thumbHtml = `<div class="w-full h-full flex items-center justify-center bg-cyan-950/40 text-[8px] text-cyan-400 font-bold">PROCEDURAL</div>`;
+                }
+
+                return `
+                    <div class="hud-panel p-2.5 rounded-sm flex items-center justify-between gap-3 hover:border-cyan-400/60 transition-all text-xs">
+                        <div class="flex items-center gap-3 overflow-hidden flex-1">
+                            <div class="w-14 h-11 bg-black border border-white/20 rounded-sm flex-shrink-0 overflow-hidden relative cursor-pointer" onclick="window.previewMonolith('${m.id}')">
+                                ${thumbHtml}
+                                <span class="absolute bottom-0 right-0 px-1 py-0.2 bg-black/80 text-[7px] font-bold ${isVideo ? 'text-rose-400' : 'text-cyan-400'}">
+                                    ${isVideo ? 'VID' : 'IMG'}
+                                </span>
+                            </div>
+                            <div class="overflow-hidden space-y-0.5">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-white tracking-wider truncate">${m.title}</span>
+                                    <span class="text-[8px] px-1 py-0.2 border ${bandColor} rounded-sm uppercase">${m.orbitBand || 'MID'}</span>
+                                </div>
+                                <div class="text-[10px] font-mono opacity-60 flex items-center gap-2 truncate">
+                                    <span class="text-cyan-300 font-bold">${m.serial}</span>
+                                    <span>•</span>
+                                    <span>${aspectBadge}</span>
+                                    <span>•</span>
+                                    <span>${(m.orbitRadius || 34).toFixed(1)} AU</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            <button onclick="window.openEditModal('${m.id}')" class="hud-btn text-amber-400 hover:border-amber-400 text-[9px] py-1 px-2">
+                                [ EDIT ]
+                            </button>
+                            <button onclick="window.previewMonolith('${m.id}')" class="hud-btn text-[9px] py-1 px-2">
+                                [ INSPECT ]
+                            </button>
+                            <a href="index.html" class="hud-btn hud-btn-primary text-[9px] py-1 px-2">
+                                [ 3D ]
+                            </a>
+                            <button onclick="window.deleteMonolith('${m.id}')" class="hud-btn text-rose-400 hover:border-rose-400 text-[9px] py-1 px-1.5">
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        window.previewMonolith = function (id) {
+            const item = currentMonoliths.find(m => m.id === id);
+            if (!item) return;
+
+            currentInspectedMonolithId = id;
+            previewModalTitle.textContent = `${item.serial} // ${item.title}`;
+            previewModalMeta.textContent = `${ASPECT_RATIOS[item.aspectRatio]?.label || item.aspectRatio} • ${(item.orbitRadius || 30).toFixed(1)} AU • ${item.orbitBand?.toUpperCase() || 'MID'} ORBIT`;
+            previewModalLink.href = item.url || '#';
+
+            previewModalContent.innerHTML = '';
+            if (item.mediaType === 'video' && item.url) {
+                const v = document.createElement('video');
+                v.src = item.url;
+                v.controls = true;
+                v.autoplay = true;
+                v.className = 'max-w-full max-h-[65vh] object-contain';
+                previewModalContent.appendChild(v);
+            } else if (item.url) {
+                const img = document.createElement('img');
+                img.src = item.url;
+                img.className = 'max-w-full max-h-[65vh] object-contain';
+                previewModalContent.appendChild(img);
+            } else {
+                previewModalContent.innerHTML = `<div class="p-8 text-cyan-400 font-mono text-center">PROCEDURAL KINETIC FEED</div>`;
+            }
+
+            previewModal.classList.remove('hidden');
+        };
+
+        window.deleteMonolith = async function (id) {
+            const item = currentMonoliths.find(m => m.id === id);
+            if (!item) return;
+            if (confirm(`De-orbit and remove ${item.serial} (${item.title})?`)) {
+                await firebaseService.deleteMonolith(id);
+            }
+        };
+
+        function updateEditModalPreview() {
+            const url = editInputUrl.value.trim();
+            const type = editSelectType.value;
+            if (!url) {
+                editPreviewMedia.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-cyan-950/40 text-[8px] text-cyan-400 font-bold">NO URL</div>`;
+                return;
+            }
+            if (type === 'video') {
+                editPreviewMedia.innerHTML = `<video src="${url}" class="w-full h-full object-cover" muted autoplay loop></video>`;
+            } else {
+                editPreviewMedia.innerHTML = `<img src="${url}" class="w-full h-full object-cover" alt="Preview">`;
+            }
+        }
+
+        window.openEditModal = function (id) {
+            const item = currentMonoliths.find(m => m.id === id);
+            if (!item) return;
+
+            editMonolithId.value = item.id;
+            editModalHeader.textContent = `EDIT MONOLITH PARAMETERS // ${item.serial || item.id}`;
+            editPreviewSerial.textContent = item.serial || 'MNL-00';
+            editPreviewSub.textContent = item.cloudinaryPublicId || item.url || 'ARCHIVE CONSTRUCT';
+
+            editInputSerial.value = item.serial || '';
+            editInputTitle.value = item.title || '';
+            editInputDescription.value = item.description || '';
+            editSelectAspect.value = item.aspectRatio || '16:9';
+            editSelectBand.value = item.orbitBand || 'mid';
+            editInputRadius.value = item.orbitRadius ? Number(item.orbitRadius).toFixed(1) : '34.0';
+            editSelectType.value = item.mediaType || 'image';
+            editInputPublicId.value = item.cloudinaryPublicId || '';
+            editInputUrl.value = item.url || '';
+
+            updateEditModalPreview();
+
+            editModal.classList.remove('hidden');
+            editModal.classList.add('flex');
+        };
+
+        function closeEditModal() {
+            editModal.classList.add('hidden');
+            editModal.classList.remove('flex');
+        }
+
+        async function handleSaveMonolithEdit() {
+            const id = editMonolithId.value;
+            if (!id) return;
+
+            const updates = {
+                serial: editInputSerial.value.trim() || 'MNL-00',
+                title: editInputTitle.value.trim() || 'UNTITLED MONOLITH',
+                description: editInputDescription.value.trim(),
+                aspectRatio: editSelectAspect.value,
+                orbitBand: editSelectBand.value,
+                orbitRadius: parseFloat(editInputRadius.value) || 34.0,
+                mediaType: editSelectType.value,
+                cloudinaryPublicId: editInputPublicId.value.trim(),
+                url: editInputUrl.value.trim(),
+                updatedAt: Date.now()
+            };
+
+            btnSaveEdit.disabled = true;
+            btnSaveEdit.classList.add('opacity-50');
+            btnSaveEdit.innerHTML = `<span>[ SAVING TRANSMISSION... ]</span>`;
+
+            try {
+                await firebaseService.updateMonolith(id, updates);
+                closeEditModal();
+            } catch (err) {
+                console.error('Error saving monolith updates:', err);
+                alert('FAILED TO UPDATE MONOLITH: ' + (err.message || err));
+            } finally {
+                btnSaveEdit.disabled = false;
+                btnSaveEdit.classList.remove('opacity-50');
+                btnSaveEdit.innerHTML = `<span>[ SAVE MODIFICATIONS ]</span>`;
+            }
+        }
+
+        function openConfigModal() {
+            const sys = getSystemConfig();
+            cfgCldName.value = sys.cloudinary.cloudName || '';
+            cfgCldPreset.value = sys.cloudinary.uploadPreset || '';
+            cfgFbKey.value = sys.firebase.apiKey || '';
+            cfgFbProject.value = sys.firebase.projectId || '';
+            configModal.classList.remove('hidden');
+        }
+
+        function closeConfigModal() {
+            configModal.classList.add('hidden');
+        }
+
+        function handleFirebaseConfigPaste(e) {
+            const text = e.target.value;
+            if (!text) return;
+            const extract = (key) => {
+                const m = text.match(new RegExp(`${key}["']?\\s*:\\s*["']([^"']+)["']`));
+                return m ? m[1] : '';
+            };
+            const apiKey = extract('apiKey');
+            const projectId = extract('projectId');
+            if (apiKey) cfgFbKey.value = apiKey;
+            if (projectId) cfgFbProject.value = projectId;
+        }
+
+        function saveConfigFromModal() {
+            saveSystemConfig({
+                cloudinary: {
+                    cloudName: cfgCldName.value.trim(),
+                    uploadPreset: cfgCldPreset.value.trim()
+                },
+                firebase: {
+                    apiKey: cfgFbKey.value.trim(),
+                    projectId: cfgFbProject.value.trim()
+                }
+            });
+            refreshTelemetryHeader();
+            closeConfigModal();
+        }
+
+        function resetConfigDefaults() {
+            if (confirm('Reset credentials to default?')) {
+                localStorage.removeItem('singularity_sys_config_v1');
+                window.location.reload();
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

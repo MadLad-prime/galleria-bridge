@@ -1,0 +1,10 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Open read and write for the 3D gallery monoliths archive
+    match /monoliths/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

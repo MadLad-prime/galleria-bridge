@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SINGULARITY // ORBITAL ARCHIVE [0x88F]</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --hud-color: rgba(244, 244, 246, 0.85);
+            --hud-dim: rgba(244, 244, 246, 0.38);
+            --hud-border: rgba(244, 244, 246, 0.18);
+            --hud-bg: rgba(8, 8, 12, 0.55);
+            --accent: #00f0ff;
+        }
+        body.polarity-white {
+            --hud-color: rgba(12, 12, 16, 0.88);
+            --hud-dim: rgba(12, 12, 16, 0.45);
+            --hud-border: rgba(12, 12, 16, 0.22);
+            --hud-bg: rgba(244, 244, 246, 0.65);
+            --accent: #ff0055;
+        }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030305;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--hud-color);
+            transition: color 0.4s ease;
+        }
+        #webgl-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Tactical HUD Layer */
+        .hud-layer {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1.25rem;
+        }
+        .hud-panel {
+            background: var(--hud-bg);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--hud-border);
+            transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+        }
+        .hud-interactive {
+            pointer-events: auto;
+        }
+        .hud-btn {
+            background: var(--hud-bg);
+            border: 1px solid var(--hud-border);
+            color: var(--hud-color);
+            padding: 0.45rem 0.85rem;
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .hud-btn:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+            transform: translateY(-1px);
+        }
+        .hud-btn:active {
+            transform: translateY(0px);
+        }
+        /* Custom Crosshair */
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 28px;
+            height: 28px;
+            z-index: 15;
+            pointer-events: none;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #crosshair.hovering {
+            transform: translate(-50%, -50%) scale(1.45) rotate(45deg);
+        }
+        #crosshair.locked {
+            transform: translate(-50%, -50%) scale(0.85);
+        }
+        .ch-line {
+            position: absolute;
+            background: var(--hud-color);
+            transition: background 0.3s ease;
+        }
+        #crosshair.hovering .ch-line {
+            background: var(--accent);
+        }
+        /* Corner Brackets */
+        .corner-bracket {
+            position: relative;
+        }
+        .corner-bracket::before,
+        .corner-bracket::after {
+            content: '';
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-color: var(--hud-color);
+            pointer-events: none;
+        }
+        .corner-bracket::before {
+            top: -1px;
+            left: -1px;
+            border-top: 1.5px solid var(--hud-color);
+            border-left: 1.5px solid var(--hud-color);
+        }
+        .corner-bracket::after {
+            bottom: -1px;
+            right: -1px;
+            border-bottom: 1.5px solid var(--hud-color);
+            border-right: 1.5px solid var(--hud-color);
+        }
+        /* Scanline subtle overlay */
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.06) 50%,
+                rgba(0, 0, 0, 0.06)
+            );
+            background-size: 100% 4px;
+            opacity: 0.6;
+        }
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.25; }
+        }
+        .rupture-warning {
+            animation: pulse-fast 0.25s infinite;
+            color: #ff0055 !important;
+            border-color: #ff0055 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Viewport -->
+    <div id="webgl-container"></div>
+
+    <!-- Subtle Tactical Scanlines -->
+    <div class="scanlines"></div>
+
+    <!-- Center Reticle / Crosshair -->
+    <div id="crosshair">
+        <div class="ch-line" style="top: 0; left: 13px; width: 2px; height: 6px;"></div>
+        <div class="ch-line" style="bottom: 0; left: 13px; width: 2px; height: 6px;"></div>
+        <div class="ch-line" style="left: 0; top: 13px; width: 6px; height: 2px;"></div>
+        <div class="ch-line" style="right: 0; top: 13px; width: 6px; height: 2px;"></div>
+        <div style="position:absolute; top:12px; left:12px; width:4px; height:4px; border-radius:50%; border: 1px solid var(--hud-color);"></div>
+    </div>
+
+    <!-- Tactical Telemetry HUD -->
+    <div class="hud-layer">
+        <!-- Top Row: System Header & Rupture Controls -->
+        <div class="flex flex-wrap justify-between items-start gap-4">
+            <!-- Left Telemetry Block -->
+            <div class="hud-panel corner-bracket px-4 py-3 rounded-sm max-w-xs sm:max-w-md">
+                <div class="flex items-center gap-2.5 mb-1">
+                    <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs font-bold tracking-widest">ARCHIVE // SINGULARITY_01</span>
+                    <span class="text-[10px] opacity-50">v4.09</span>
+                </div>
+                <div class="text-[11px] leading-relaxed opacity-75 space-y-0.5">
+                    <div class="flex justify-between gap-6">
+                        <span class="opacity-60">SPACE POLARITY:</span>
+                        <span id="hud-polarity" class="font-semibold tracking-wider">[ VOID: BLACK // #030305 ]</span>
+                    </div>
+                    <div class="flex justify-between gap-6">
+                        <span class="opacity-60">RUPTURE COUNTDOWN:</span>
+                        <span id="hud-rupture-timer" class="font-semibold">18.4s</span>
+                    </div>
+                    <div class="flex justify-between gap-6">
+                        <span class="opacity-60">MEDIA MONOLITHS:</span>
+                        <span id="hud-card-count">28 ACTIVE ORBITS</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Rupture Alert Banner (Hidden until active) -->
+            <div id="rupture-banner" class="hidden hud-panel rupture-warning px-5 py-2 rounded-sm text-xs font-bold tracking-[0.25em] uppercase">
+                // SPACETIME CHROMATIC RUPTURE IN PROGRESS //
+            </div>
+
+            <!-- Right Controls & Architecture Info -->
+            <div class="flex flex-col items-end gap-2 hud-interactive">
+                <div class="flex items-center gap-2">
+                    <button id="btn-trigger-rupture" class="hud-btn rounded-sm font-semibold">
+                        [ TRIGGER RUPTURE ]
+                    </button>
+                    <button id="btn-reset-orbits" class="hud-btn rounded-sm" title="Release all anchored monoliths">
+                        [ RELEASE ALL ]
+                    </button>
+                    <button id="btn-arch-spec" class="hud-btn rounded-sm">
+                        [ SYS SPEC ]
+                    </button>
+                </div>
+                <div class="hud-panel px-3 py-1.5 rounded-sm text-[10px] tracking-wider flex items-center gap-4">
+                    <span>FPS: <strong id="hud-fps">60</strong></span>
+                    <span>VEL: <strong id="hud-vel">0.00</strong> m/s</span>
+                    <span>POS: <strong id="hud-pos">0, 12, 68</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Interactive Context Prompt (Card Inspection Telemetry) -->
+        <div class="flex justify-between items-center my-auto pointer-events-none">
+            <!-- Selected Monolith Telemetry Card -->
+            <div id="card-telemetry" class="hud-panel corner-bracket px-4 py-3 rounded-sm w-72 transition-all duration-300 opacity-0 -translate-x-4">
+                <div class="text-[10px] tracking-widest opacity-50 mb-1">MONOLITH TELEMETRY</div>
+                <div id="card-id" class="text-sm font-bold tracking-wider mb-1">MNL-00 // UNKNOWN</div>
+                <div class="text-[11px] space-y-1 opacity-85 border-t border-current/15 pt-2 mt-1">
+                    <div class="flex justify-between">
+                        <span class="opacity-60">STATE:</span>
+                        <span id="card-state" class="font-semibold text-cyan-400">ORBITING</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="opacity-60">MEDIA TYPE:</span>
+                        <span id="card-type">KINETIC VIDEO LOOP</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="opacity-60">ASPECT RATIO:</span>
+                        <span id="card-aspect">16:9 WIDE</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="opacity-60">ORBIT RADIUS:</span>
+                        <span id="card-radius">42.8 AU</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="opacity-60">CDN SOURCE:</span>
+                        <span id="card-cdn" class="truncate max-w-[130px]">cloudinary://auto:best</span>
+                    </div>
+                </div>
+                <div id="card-action-hint" class="mt-3 pt-2 border-t border-current/15 text-[10px] tracking-wider uppercase font-semibold">
+                    [CLICK 1]: ANCHOR IN SPACE
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row: 6-DOF Navigation Guide & Interaction States -->
+        <div class="flex flex-wrap justify-between items-end gap-4">
+            <div class="hud-panel px-4 py-2.5 rounded-sm text-[11px] tracking-wider space-y-1">
+                <div class="text-[10px] font-bold tracking-widest opacity-60 uppercase">6-DOF Ghost Navigation</div>
+                <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+                    <span><strong class="underline">W A S D</strong> : SURGE / STRAFE</span>
+                    <span><strong class="underline">SPACE / E</strong> : ASCEND</span>
+                    <span><strong class="underline">SHIFT / Q</strong> : DESCEND</span>
+                    <span><strong class="underline">DRAG MOUSE</strong> or <strong class="underline">DBL-CLICK</strong> : FREE LOOK</span>
+                    <span><strong class="underline">SCROLL</strong> : THRUST IMPULSE</span>
+                </div>
+            </div>
+
+            <div class="hud-panel px-4 py-2.5 rounded-sm text-[11px] tracking-wider text-right">
+                <div class="text-[10px] font-bold tracking-widest opacity-60 uppercase mb-0.5">Monolith Raycast Protocol</div>
+                <div class="flex items-center gap-3 text-[10px]">
+                    <span class="px-1.5 py-0.5 border border-current/25 rounded-sm">1st CLICK: FREEZE ORBIT</span>
+                    <span>→</span>
+                    <span class="px-1.5 py-0.5 border border-current/25 rounded-sm">2nd CLICK: APPROACH CAMERA</span>
+                    <span>→</span>
+                    <span class="px-1.5 py-0.5 border border-current/25 rounded-sm">3rd CLICK: RELEASE</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Architecture & Stack Modal (Toggled via [ SYS SPEC ]) -->
+    <div id="arch-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+        <div class="hud-panel corner-bracket max-w-2xl w-full p-6 rounded-sm text-xs leading-relaxed space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-current/20 pb-3">
+                <div>
+                    <h2 class="text-sm font-bold tracking-widest uppercase">ARCHITECTURAL SPECIFICATION // FIREBASE + CLOUDINARY + GLSL</h2>
+                    <p class="text-[10px] opacity-60">BARE-METAL VANILLA JS 3D ENGINE & MEDIA PIPELINE</p>
+                </div>
+                <button id="btn-close-modal" class="hud-btn rounded-sm">[ CLOSE X ]</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-3 border border-current/15 rounded-sm space-y-1.5">
+                    <div class="font-bold tracking-wider uppercase text-cyan-400">1. Aesthetic & Shader Pipeline</div>
+                    <p class="opacity-80 text-[11px]">
+                        Renders to an offscreen <code class="px-1 bg-white/10">THREE.WebGLRenderTarget</code> before passing through a full-screen custom GLSL Spacetime Chromatic Rupture shader. During a rupture, simplex wave distortion bends UV coordinates while splitting RGB channels and injecting vivid spectral cosine palettes (<code class="px-1 bg-white/10">iq-style</code> iridescence) before inverting the void polarity between <code class="px-1 bg-white/10">#030305</code> and <code class="px-1 bg-white/10">#F4F4F6</code>.
+                    </p>
+                </div>
+                <div class="p-3 border border-current/15 rounded-sm space-y-1.5">
+                    <div class="font-bold tracking-wider uppercase text-cyan-400">2. Cloudinary Delivery Builder</div>
+                    <p class="opacity-80 text-[11px]">
+                        Zero-dependency URL transformation pipeline (<code class="px-1 bg-white/10">CLOUDINARY_CONFIG.buildUrl()</code>) dynamically injects <code class="px-1 bg-white/10">f_auto,q_auto:best,w_1024</code> for images and streaming <code class="px-1 bg-white/10">.mp4</code> transcodes for looping video textures, with procedural high-contrast kinetic HTML5 Canvas & WebGL texture generators built in for zero-latency fallback.
+                    </p>
+                </div>
+                <div class="p-3 border border-current/15 rounded-sm space-y-1.5">
+                    <div class="font-bold tracking-wider uppercase text-cyan-400">3. Double-Sided Razor Monoliths</div>
+                    <p class="opacity-80 text-[11px]">
+                        Each card is constructed as an ultra-thin 3-part assembly (front plane, back plane rotated <code class="px-1 bg-white/10">Math.PI</code> on Y so textures never mirror backwards, and a dark metallic chassis rim) orbiting the singularity via Keplerian angular velocity (<code class="px-1 bg-white/10">ω ∝ r^-1.5</code>).
+                    </p>
+                </div>
+                <div class="p-3 border border-current/15 rounded-sm space-y-1.5">
+                    <div class="font-bold tracking-wider uppercase text-cyan-400">4. Firebase Hosting Deployment</div>
+                    <p class="opacity-80 text-[11px]">
+                        Static single-bundle architecture served via Firebase Hosting CDN edge nodes with immutable cache headers for GLSL/JS assets and CORS-enabled Cloudinary texture fetching (<code class="px-1 bg-white/10">crossOrigin = "anonymous"</code>).
+                    </p>
+                </div>
+            </div>
+
+            <div class="p-3 border border-current/15 rounded-sm text-[11px] font-mono opacity-80">
+                <div class="font-bold mb-1 uppercase">Cloudinary Config Hook (Live in Code):</div>
+                <pre class="overflow-x-auto text-[10px]">CLOUDINARY_CONFIG.buildUrl('archive/monolith_04', { type: 'video', aspect: '16:9', width: 1024 })
+// -> https://res.cloudinary.com/demo/video/upload/f_auto,q_auto:best,w_1024/archive/monolith_04.mp4</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /***************************************************************************
+         * 1. CLOUDINARY MEDIA PIPELINE & PROCEDURAL KINETIC TEXTURE ENGINE
+         * Supports live Cloudinary publicIds alongside high-contrast procedural
+         * architectural/sci-fi imagery and real-time 60fps looping video canvases.
+         ***************************************************************************/
+        const CLOUDINARY_CONFIG = {
+            cloudName: 'demo', // Replace with production Cloudinary cloud_name
+            baseDeliveryUrl: 'https://res.cloudinary.com',
+            defaultTransforms: 'f_auto,q_auto:best,c_fill',
+
+            /**
+             * Builds an optimized Cloudinary URL for image or video textures
+             * @param {string} publicId - Asset path in Cloudinary
+             * @param {Object} opts - { resourceType: 'image'|'video', width: 1024, height: 576 }
+             */
+            buildUrl(publicId, opts = {}) {
+                const type = opts.resourceType || 'image';
+                const dims = opts.width && opts.height ? `,w_${opts.width},h_${opts.height}` : ',w_1024';
+                const ext = type === 'video' ? '.mp4' : '.jpg';
+                return `${this.baseDeliveryUrl}/${this.cloudName}/${type}/upload/${this.defaultTransforms}${dims}/${publicId}${ext}`;
+            }
+        };
+
+        // Aspect Ratio Presets for Razor-Thin Monoliths
+        const ASPECT_PRESETS = [
+            { label: '16:9 WIDE', w: 6.4, h: 3.6, texW: 640, texH: 360 },
+            { label: '9:16 VERTICAL', w: 3.4, h: 6.0, texW: 360, texH: 640 },
+            { label: '4:3 ARCHIVE', w: 5.2, h: 3.9, texW: 520, texH: 390 },
+            { label: '1:1 MONOLITH', w: 4.5, h: 4.5, texW: 480, texH: 480 },
+            { label: '21:9 ANAMORPHIC', w: 7.5, h: 3.2, texW: 750, texH: 320 }
+        ];
+
+        // Curated high-contrast architectural / brutalist / cosmic Unsplash fallbacks + procedural kinetic video loops
+        const SAMPLE_IMAGES = [
+            'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=900&q=80',
+            'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=900&q=80'
+        ];
+
+        /**
+         * Generates dynamic looping kinetic video textures & high-contrast telemetry art
+         * so that every video/image card has crisp typography, waveforms, and motion
+         */
+        class KineticMediaFactory {
+            constructor() {
+                this.dynamicTextures = [];
+                this.textureLoader = new THREE.TextureLoader();
+                this.textureLoader.setCrossOrigin('anonymous');
+            }
+
+            createMediaTexture(index, preset) {
+                const isVideo = index % 3 === 0; // Every 3rd monolith is a real-time 60fps looping kinetic video feed
+                const canvas = document.createElement('canvas');
+                canvas.width = preset.texW;
+                canvas.height = preset.texH;
+                const ctx = canvas.getContext('2d');
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+                texture.anisotropy = 4;
+
+                const serial = `MNL-${String(index + 1).padStart(2, '0')} // 0x${((index + 1) * 439).toString(16).toUpperCase()}`;
+                const mode = index % 4;
+
+                // Initial draw
+                this.renderKineticFrame(ctx, preset.texW, preset.texH, 0, index, serial, mode, null);
+
+                if (isVideo) {
+                    // Register in real-time video animation loop
+                    this.dynamicTextures.push({
+                        ctx,
+                        w: preset.texW,
+                        h: preset.texH,
+                        texture,
+                        index,
+                        serial,
+                        mode,
+                        speed: 0.7 + (index % 5) * 0.25
+                    });
+                } else {
+                    // Load high-contrast architectural/cosmic photograph and composite technical HUD overlay
+                    const imgUrl = SAMPLE_IMAGES[index % SAMPLE_IMAGES.length];
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        this.renderKineticFrame(ctx, preset.texW, preset.texH, 1.5, index, serial, mode, img);
+                        texture.needsUpdate = true;
+                    };
+                    img.src = imgUrl;
+                }
+
+                return {
+                    texture,
+                    isVideo,
+                    serial,
+                    cloudinaryPath: `cloudinary://singularity_archive/monolith_${String(index + 1).padStart(2, '0')}`
+                };
+            }
+
+            renderKineticFrame(ctx, w, h, time, index, serial, mode, loadedImage) {
+                // Deep dark brutalist background
+                ctx.fillStyle = '#09090d';
+                ctx.fillRect(0, 0, w, h);
+
+                if (loadedImage) {
+                    // Cover-fit image with high-contrast grade
+                    const imgRatio = loadedImage.width / loadedImage.height;
+                    const cRatio = w / h;
+                    let drawW = w, drawH = h, offsetX = 0, offsetY = 0;
+                    if (imgRatio > cRatio) {
+                        drawW = h * imgRatio;
+                        offsetX = -(drawW - w) * 0.5;
+                    } else {
+                        drawH = w / imgRatio;
+                        offsetY = -(drawH - h) * 0.5;
+                    }
+                    ctx.save();
+                    ctx.filter = 'contrast(125%) saturate(110%) brightness(88%)';
+                    ctx.drawImage(loadedImage, offsetX, offsetY, drawW, drawH);
+                    ctx.restore();
+
+                    // Vignette gradient
+                    const grad = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.15, w * 0.5, h * 0.5, Math.max(w, h) * 0.7);
+                    grad.addColorStop(0, 'rgba(0,0,0,0)');
+                    grad.addColorStop(1, 'rgba(5,5,10,0.65)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                } else {
+                    // Procedural Kinetic Video Loop Modes
+                    ctx.save();
+                    if (mode === 0) {
+                        // Mode 0: Relativistic Orbital Waveform & Interferometry
+                        const cx = w * 0.5;
+                        const cy = h * 0.5;
+                        for (let i = 0; i < 16; i++) {
+                            const r = ((i * 22 + time * 45) % (Math.min(w, h) * 0.46));
+                            const hue = (time * 35 + i * 22) % 360;
+                            ctx.strokeStyle = i % 3 === 0 ? `hsla(${hue}, 95%, 65%, 0.75)` : 'rgba(240,244,255,0.28)';
+                            ctx.lineWidth = i % 4 === 0 ? 2 : 1;
+                            ctx.beginPath();
+                            ctx.ellipse(
+                                cx,
+                                cy,
+                                r,
+                                r * (0.45 + 0.35 * Math.sin(time * 0.8 + i * 0.3)),
+                                time * 0.4 + i * 0.12,
+                                0,
+                                Math.PI * 2
+                            );
+                            ctx.stroke();
+                        }
+                    } else if (mode === 1) {
+                        // Mode 1: Spectral Topographical Scanlines
+                        const lines = 24;
+                        for (let j = 0; j < lines; j++) {
+                            const baseY = (h * 0.18) + (j / lines) * (h * 0.64);
+                            ctx.beginPath();
+                            const hue = (j * 12 + time * 50) % 360;
+                            ctx.strokeStyle = j % 5 === 0 ? `hsla(${hue}, 90%, 60%, 0.9)` : 'rgba(244,244,246,0.45)';
+                            ctx.lineWidth = j % 5 === 0 ? 2.2 : 1;
+                            for (let x = 24; x <= w - 24; x += 12) {
+                                const wave = Math.sin(x * 0.025 + time * 2.2 + j * 0.4) * 14 * Math.sin(j * 0.2 + time);
+                                if (x === 24) ctx.moveTo(x, baseY + wave);
+                                else ctx.lineTo(x, baseY + wave);
+                            }
+                            ctx.stroke();
+                        }
+                    } else if (mode === 2) {
+                        // Mode 2: Brutalist Kinetic Grid & Glitched Data Matrix
+                        const cols = 8;
+                        const rows = 6;
+                        const cellW = (w - 48) / cols;
+                        const cellH = (h - 72) / rows;
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                const v = Math.sin(c * 1.3 + r * 2.1 + time * 3.0);
+                                if (v > 0.15) {
+                                    const hue = (c * 30 + r * 20 + time * 60) % 360;
+                                    ctx.fillStyle = v > 0.75 ? `hsla(${hue}, 100%, 60%, 0.85)` : `rgba(244, 244, 246, ${v * 0.45})`;
+                                    ctx.fillRect(24 + c * cellW + 3, 36 + r * cellH + 3, cellW - 6, cellH - 6);
+                                }
+                            }
+                        }
+                    } else {
+                        // Mode 3: Lissajous Phase Harmonics
+                        ctx.beginPath();
+                        const cx = w * 0.5;
+                        const cy = h * 0.5;
+                        const rx = w * 0.36;
+                        const ry = h * 0.34;
+                        for (let t = 0; t < Math.PI * 2; t += 0.02) {
+                            const px = cx + Math.sin(3 * t + time * 1.4) * rx;
+                            const py = cy + Math.sin(4 * t) * ry;
+                            if (t === 0) ctx.moveTo(px, py);
+                            else ctx.lineTo(px, py);
+                        }
+                        ctx.strokeStyle = '#00f0ff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                // Precision Industrial Frame & Telemetry Overlay on Card Face
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(10, 10, w - 20, h - 20);
+
+                // Top & Bottom Technical Captions
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.font = 'bold 12px "JetBrains Mono", monospace';
+                ctx.fillText(serial, 20, 28);
+
+                const badge = loadedImage ? 'STILL // ARCHIVE' : `LIVE STREAM // ${(time * 24 % 100).toFixed(0)} FPS`;
+                ctx.font = '10px "JetBrains Mono", monospace';
+                ctx.fillStyle = loadedImage ? 'rgba(255,255,255,0.65)' : '#00f0ff';
+                ctx.fillText(badge, 20, h - 18);
+
+                // Crosshair ticks in corners
+                ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.fillRect(w - 28, 20, 8, 2);
+                ctx.fillRect(w - 22, 16, 2, 8);
+            }
+
+            update(elapsedTime) {
+                // Update kinetic video textures at smooth frame rate
+                for (let i = 0; i < this.dynamicTextures.length; i++) {
+                    const item = this.dynamicTextures[i];
+                    this.renderKineticFrame(
+                        item.ctx,
+                        item.w,
+                        item.h,
+                        elapsedTime * item.speed,
+                        item.index,
+                        item.serial,
+                        item.mode,
+                        null
+                    );
+                    item.texture.needsUpdate = true;
+                }
+            }
+        }
+
+        /***************************************************************************
+         * 2. CUSTOM GLSL SHADERS
+         * - Accretion Disk & Relativistic Lensing Halo around Central Black Hole
+         * - Full-screen Spacetime Chromatic Rupture & Void Polarity Inversion Pass
+         ***************************************************************************/
+        const AccretionVertexShader = `
+            varying vec2 vUv;
+            varying vec3 vWorldPos;
+            void main() {
+                vUv = uv;
+                vec4 wp = modelMatrix * vec4(position, 1.0);
+                vWorldPos = wp.xyz;
+                gl_Position = projectionMatrix * viewMatrix * wp;
+            }
+        `;
+
+        const AccretionFragmentShader = `
+            uniform float uTime;
+            uniform float uPolarity; // 0.0 = Black Void, 1.0 = White Void
+            uniform float uRupture;  // 0.0 -> 1.0 during spacetime rupture
+            varying vec2 vUv;
+
+            // 2D Simplex-like hash noise for plasma swirls
+            float hash(vec2 p) {
+                p = fract(p * vec2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return fract(p.x * p.y);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float amp = 0.5;
+                for (int i = 0; i < 4; i++) {
+                    v += amp * noise(p);
+                    p *= 2.03;
+                    amp *= 0.5;
+                }
+                return v;
+            }
+
+            // Inigo Quilez cosine spectral palette
+            vec3 spectralPalette(float t) {
+                vec3 a = vec3(0.5, 0.5, 0.5);
+                vec3 b = vec3(0.5, 0.5, 0.5);
+                vec3 c = vec3(1.0, 1.0, 1.0);
+                vec3 d = vec3(0.00, 0.33, 0.67);
+                return a + b * cos(6.28318 * (c * t + d));
+            }
+
+            void main() {
+                vec2 centered = vUv * 2.0 - 1.0;
+                float r = length(centered);
+                float angle = atan(centered.y, centered.x);
+
+                // Inner photon ring cutoff & outer fade
+                float innerEdge = smoothstep(0.28, 0.35, r);
+                float outerEdge = 1.0 - smoothstep(0.45, 0.98, r);
+                float ringMask = innerEdge * outerEdge;
+
+                if (ringMask <= 0.001) discard;
+
+                // Relativistic Doppler spiral coordinates
+                float spiral = angle * 2.0 - (4.5 / (r + 0.15)) + uTime * 1.35;
+                vec2 uvNoise = vec2(r * 8.0 - uTime * 0.6, spiral * 0.6);
+                float plasma = fbm(uvNoise) * fbm(uvNoise * 1.8 - uTime * 0.4);
+
+                // Intense photon ring right near the event horizon
+                float photonRing = exp(-pow((r - 0.34) * 26.0, 2.0)) * 2.2;
+
+                // Doppler beaming asymmetry (one side brighter approaching observer)
+                float doppler = 0.65 + 0.35 * sin(angle + 0.8);
+
+                // Base colors for Black Void vs White Void
+                vec3 darkVoidColor = mix(vec3(1.0, 0.32, 0.08), vec3(0.75, 0.92, 1.0), photonRing * 0.6 + plasma);
+                vec3 whiteVoidColor = mix(vec3(0.04, 0.06, 0.12), vec3(0.35, 0.0, 0.85), photonRing * 0.5 + plasma);
+
+                vec3 baseCol = mix(darkVoidColor, whiteVoidColor, uPolarity);
+
+                // Vivid spectral eruption during spacetime rupture
+                vec3 vividSpectrum = spectralPalette(r * 2.5 - uTime * 0.8 + plasma * 1.4) * 1.75;
+                vec3 finalCol = mix(baseCol, vividSpectrum, uRupture);
+
+                float alpha = clamp((plasma * 2.2 + photonRing) * ringMask * doppler, 0.0, 0.96);
+                gl_FragColor = vec4(finalCol * (1.2 + photonRing), alpha);
+            }
+        `;
+
+        // Full-Screen Post-Processing Spacetime Chromatic Rupture Shader
+        const RupturePostVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = vec4(position.xy, 0.0, 1.0);
+            }
+        `;
+
+        const RupturePostFragmentShader = `
+            uniform sampler2D tDiffuse;
+            uniform float uTime;
+            uniform float uRupture;  // 0.0 (calm) -> 1.0 (peak spacetime bend)
+            uniform float uPolarity; // 0.0 (black space) -> 1.0 (white space)
+            uniform vec2 uResolution;
+            varying vec2 vUv;
+
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(
+                    mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+                    mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+                    f.y
+                );
+            }
+
+            // Vivid full-gamut spectral palette for spacetime chromatic tear
+            vec3 spectralColor(float t) {
+                vec3 a = vec3(0.55, 0.50, 0.55);
+                vec3 b = vec3(0.50, 0.50, 0.50);
+                vec3 c = vec3(1.0, 1.0, 0.85);
+                vec3 d = vec3(0.00, 0.33, 0.67);
+                return a + b * cos(6.28318 * (c * t + d));
+            }
+
+            void main() {
+                vec2 uv = vUv;
+                vec2 center = uv - 0.5;
+                float dist = length(center);
+                float angle = atan(center.y, center.x);
+
+                if (uRupture > 0.001) {
+                    // 1. Gravitational Spacetime Bending + Glitch Tear Slices
+                    float sliceY = floor(uv.y * 28.0 + uTime * 14.0);
+                    float sliceGlitch = step(0.84 - uRupture * 0.25, hash(vec2(sliceY, floor(uTime * 18.0))));
+                    float horizontalTear = (hash(vec2(sliceY, uTime)) - 0.5) * 0.14 * uRupture * sliceGlitch;
+
+                    // Non-linear radial S-wave twist around the central black hole
+                    float waveTwist = sin(dist * 18.0 - uTime * 9.0) * 0.055 * uRupture;
+                    float swirlAngle = angle + (uRupture * 0.75 * exp(-dist * 2.2)) * sin(uTime * 4.5);
+
+                    vec2 warpedCenter = vec2(cos(swirlAngle), sin(swirlAngle)) * (dist + waveTwist);
+                    uv = clamp(warpedCenter + 0.5 + vec2(horizontalTear, 0.0), 0.002, 0.998);
+                }
+
+                // 2. Prismatic Multi-Channel RGB Chromatic Aberration
+                float chromaShift = uRupture * (0.048 * (0.35 + dist * 1.4));
+                vec2 dir = normalize(center + 0.0001);
+
+                vec4 texR = texture2D(tDiffuse, clamp(uv + dir * chromaShift, 0.001, 0.999));
+                vec4 texG = texture2D(tDiffuse, uv);
+                vec4 texB = texture2D(tDiffuse, clamp(uv - dir * chromaShift * 1.15, 0.001, 0.999));
+
+                vec3 sceneColor = vec3(texR.r, texG.g, texB.b);
+
+                if (uRupture > 0.001) {
+                    // 3. Vivid Spectral Iridescence & Hue Eruption across bent spacetime
+                    float n1 = noise(uv * 6.5 + vec2(uTime * 1.8, -uTime * 1.4));
+                    float n2 = noise(uv * 16.0 - vec2(uTime * 3.1, uTime * 2.2));
+                    float phase = dist * 3.2 - uTime * 1.6 + n1 * 1.8 + n2 * 0.75;
+
+                    vec3 rainbowRibbon = spectralColor(phase);
+                    vec3 neonMixture = spectralColor(phase * 1.7 + 0.35);
+                    vec3 vividField = mix(rainbowRibbon, neonMixture, n2);
+
+                    // Edge luminance detection so card borders & horizon erupt with intense color
+                    float lumDiff = length(texR.rgb - texB.rgb) + abs(texG.r - texG.b);
+                    float spectralMask = clamp(uRupture * (0.62 + lumDiff * 1.9 + n1 * 0.45), 0.0, 1.0);
+
+                    // Blend vivid chromatic plasma with inverted flashes
+                    sceneColor = mix(sceneColor, vividField * 1.35, spectralMask * 0.72);
+                    sceneColor += vividField * lumDiff * uRupture * 1.4;
+
+                    // Brief high-energy dimensional inversion flash at peak rupture
+                    float peakFlash = smoothstep(0.68, 0.98, uRupture);
+                    sceneColor = mix(sceneColor, 1.0 - sceneColor, peakFlash * 0.45);
+                }
+
+                // Subtle cinematic vignette
+                float vig = 1.0 - smoothstep(0.55, 1.25, dist);
+                sceneColor *= (0.88 + 0.12 * vig);
+
+                gl_FragColor = vec4(sceneColor, 1.0);
+            }
+        `;
+
+        /***************************************************************************
+         * 3. CORE 3D APPLICATION ARCHITECTURE
+         ***************************************************************************/
+        class OrbitalSpaceGallery {
+            constructor() {
+                this.container = document.getElementById('webgl-container');
+                this.clock = new THREE.Clock();
+                this.mediaFactory = new KineticMediaFactory();
+
+                // Polarity & Rupture State
+                this.polarity = 0; // 0 =VOID: BLACK (#030305), 1 = VOID: WHITE (#F4F4F6)
+                this.polarityLerp = 0.0;
+                this.ruptureActive = false;
+                this.ruptureIntensity = 0.0;
+                this.ruptureElapsed = 0.0;
+                this.ruptureDuration = 3.2;
+                this.polarityFlippedInCurrentRupture = false;
+                this.nextRuptureCountdown = this.randomRange(15.0, 24.0);
+
+                // Void Color Palettes
+                this.blackVoidColor = new THREE.Color(0x030305);
+                this.whiteVoidColor = new THREE.Color(0xF4F4F6);
+                this.currentVoidColor = this.blackVoidColor.clone();
+
+                // 6-DOF Ghost Navigation State
+                this.cameraYaw = 0;
+                this.cameraPitch = -0.14;
+                this.targetYaw = 0;
+                this.targetPitch = -0.14;
+                this.velocity = new THREE.Vector3();
+                this.moveInput = { forward: 0, right: 0, up: 0 };
+                this.isDraggingLook = false;
+                this.isPointerLocked = false;
+                this.pointerDownPos = { x: 0, y: 0 };
+                this.dragDistance = 0;
+
+                // Monolith Cards & Raycasting
+                this.cards = [];
+                this.raycaster = new THREE.Raycaster();
+                this.mouseNDC = new THREE.Vector2(0, 0); // Center reticle or cursor
+                this.hoveredCard = null;
+                this.inspectedCard = null;
+
+                // FPS Counter
+                this.frameCount = 0;
+                this.fpsTimer = 0;
+
+                this.initThree();
+                this.initBlackHoleSingularity();
+                this.initCosmicDust();
+                this.initMediaMonoliths(28);
+                this.initPostProcessing();
+                this.initControlsAndEvents();
+
+                this.animate();
+            }
+
+            randomRange(min, max) {
+                return min + Math.random() * (max - min);
+            }
+
+            initThree() {
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+
+                this.scene = new THREE.Scene();
+                this.scene.background = this.blackVoidColor.clone();
+                this.scene.fog = new THREE.FogExp2(0x030305, 0.0042);
+
+                this.camera = new THREE.PerspectiveCamera(58, w / h, 0.1, 600);
+                this.camera.position.set(0, 14, 72);
+                this.camera.rotation.order = 'YXZ';
+
+                this.renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    powerPreference: 'high-performance'
+                });
+                this.renderer.setSize(w, h);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.container.appendChild(this.renderer.domElement);
+
+                // Ambient & rim lighting for metallic monolith chassis edges
+                this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+                this.scene.add(this.ambientLight);
+
+                this.corePointLight = new THREE.PointLight(0x00f0ff, 2.5, 160);
+                this.corePointLight.position.set(0, 0, 0);
+                this.scene.add(this.corePointLight);
+            }
+
+            initBlackHoleSingularity() {
+                this.singularityGroup = new THREE.Group();
+                this.singularityGroup.position.set(0, 0, 0);
+                this.scene.add(this.singularityGroup);
+
+                // 1. Central Event Horizon Sphere (Absolute Singularity Core)
+                const horizonGeo = new THREE.SphereGeometry(5.6, 64, 64);
+                this.horizonMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                this.horizonMesh = new THREE.Mesh(horizonGeo, this.horizonMat);
+                this.singularityGroup.add(this.horizonMesh);
+
+                // 2. Relativistic Photon Shell (Fresnel-like inner lensing rim)
+                const photonGeo = new THREE.SphereGeometry(5.95, 48, 48);
+                this.photonMat = new THREE.MeshBasicMaterial({
+                    color: 0xffaa55,
+                    transparent: true,
+                    opacity: 0.35,
+                    side: THREE.BackSide,
+                    blending: THREE.AdditiveBlending
+                });
+                this.photonMesh = new THREE.Mesh(photonGeo, this.photonMat);
+                this.singularityGroup.add(this.photonMesh);
+
+                // 3. Primary Relativistic Accretion Disk (Custom GLSL Shader)
+                this.accretionUniforms = {
+                    uTime: { value: 0 },
+                    uPolarity: { value: 0 },
+                    uRupture: { value: 0 }
+                };
+
+                const diskGeo = new THREE.PlaneGeometry(36, 36, 1, 1);
+                this.accretionMat = new THREE.ShaderMaterial({
+                    vertexShader: AccretionVertexShader,
+                    fragmentShader: AccretionFragmentShader,
+                    uniforms: this.accretionUniforms,
+                    transparent: true,
+                    depthWrite: false,
+                    side: THREE.DoubleSide
+                });
+
+                // Horizontal main accretion plane
+                this.accretionDiskMain = new THREE.Mesh(diskGeo, this.accretionMat);
+                this.accretionDiskMain.rotation.x = Math.PI * 0.44;
+                this.accretionDiskMain.rotation.z = 0.18;
+                this.singularityGroup.add(this.accretionDiskMain);
+
+                // Gravitationally lensed secondary vertical Einstein ring
+                this.accretionDiskLensed = new THREE.Mesh(diskGeo, this.accretionMat);
+                this.accretionDiskLensed.rotation.x = -0.18;
+                this.accretionDiskLensed.rotation.y = 0.25;
+                this.accretionDiskLensed.scale.setScalar(0.84);
+                this.singularityGroup.add(this.accretionDiskLensed);
+            }
+
+            initCosmicDust() {
+                const particleCount = 1600;
+                const positions = new Float32Array(particleCount * 3);
+                const scales = new Float32Array(particleCount);
+
+                for (let i = 0; i < particleCount; i++) {
+                    const r = 12 + Math.pow(Math.random(), 0.7) * 145;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = (Math.random() - 0.5) * Math.PI * 0.85;
+
+                    positions[i * 3] = r * Math.cos(theta) * Math.cos(phi);
+                    positions[i * 3 + 1] = r * Math.sin(phi) * 0.65;
+                    positions[i * 3 + 2] = r * Math.sin(theta) * Math.cos(phi);
+                    scales[i] = Math.random();
+                }
+
+                const dustGeo = new THREE.BufferGeometry();
+                dustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                dustGeo.setAttribute('aScale', new THREE.BufferAttribute(scales, 1));
+
+                this.dustMat = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.35,
+                    transparent: true,
+                    opacity: 0.55,
+                    sizeAttenuation: true
+                });
+
+                this.dustPoints = new THREE.Points(dustGeo, this.dustMat);
+                this.scene.add(this.dustPoints);
+            }
+
+            /**
+             * Spawns 28 Razor-Thin Double-Sided Media Cards in Keplerian Orbits
+             */
+            initMediaMonoliths(count) {
+                const edgeMat = new THREE.MeshStandardMaterial({
+                    color: 0x1a1a24,
+                    metalness: 0.85,
+                    roughness: 0.25
+                });
+
+                for (let i = 0; i < count; i++) {
+                    const preset = ASPECT_PRESETS[i % ASPECT_PRESETS.length];
+                    const scaleFactor = this.randomRange(0.78, 1.32);
+                    const width = preset.w * scaleFactor;
+                    const height = preset.h * scaleFactor;
+                    const thickness = 0.045; // Razor-thin profile
+
+                    const mediaInfo = this.mediaFactory.createMediaTexture(i, preset);
+
+                    // Group container for the monolith
+                    const cardGroup = new THREE.Group();
+
+                    // 1. Ultra-thin metallic structural core
+                    const coreGeo = new THREE.BoxGeometry(width, height, thickness);
+                    const coreMesh = new THREE.Mesh(coreGeo, edgeMat);
+                    cardGroup.add(coreMesh);
+
+                    // 2. Front Media Surface (+Z)
+                    const faceGeo = new THREE.PlaneGeometry(width * 0.985, height * 0.985);
+                    const faceMat = new THREE.MeshBasicMaterial({
+                        map: mediaInfo.texture,
+                        side: THREE.FrontSide
+                    });
+                    const frontFace = new THREE.Mesh(faceGeo, faceMat);
+                    frontFace.position.z = thickness * 0.5 + 0.004;
+                    cardGroup.add(frontFace);
+
+                    // 3. Back Media Surface (-Z, rotated PI around Y so image/video is never mirrored)
+                    const backFace = new THREE.Mesh(faceGeo, faceMat);
+                    backFace.rotation.y = Math.PI;
+                    backFace.position.z = -(thickness * 0.5 + 0.004);
+                    cardGroup.add(backFace);
+
+                    // 4. Selection / State Highlight Wireframe Border
+                    const borderGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(width + 0.14, height + 0.14, thickness + 0.04));
+                    const borderMat = new THREE.LineBasicMaterial({
+                        color: 0x00f0ff,
+                        transparent: true,
+                        opacity: 0.0
+                    });
+                    const borderLines = new THREE.LineSegments(borderGeo, borderMat);
+                    cardGroup.add(borderLines);
+
+                    // Keplerian Orbital Parameters around (0,0,0)
+                    const orbitRadius = 17 + (i / count) * 68 + this.randomRange(-2.5, 2.5);
+                    const orbitAngle = (i / count) * Math.PI * 2 * 3.7 + this.randomRange(0, 1.2);
+                    // Kepler's 3rd Law: closer cards orbit significantly faster
+                    const angularSpeed = (3.4 / Math.pow(orbitRadius, 1.15)) * (i % 5 === 0 ? -1 : 1);
+                    const inclination = this.randomRange(-0.52, 0.52);
+                    const ascendingNode = this.randomRange(0, Math.PI * 2);
+                    const verticalAmp = this.randomRange(1.5, 7.5);
+
+                    const cardData = {
+                        id: mediaInfo.serial,
+                        index: i,
+                        group: cardGroup,
+                        coreMesh,
+                        frontFace,
+                        backFace,
+                        borderMat,
+                        width,
+                        height,
+                        aspectLabel: preset.label,
+                        isVideo: mediaInfo.isVideo,
+                        cloudinaryPath: mediaInfo.cloudinaryPath,
+                        // 3-State Machine: 0 = ORBITING, 1 = ANCHORED (Frozen), 2 = INSPECT (Approached)
+                        state: 0,
+                        orbitRadius,
+                        orbitAngle,
+                        angularSpeed,
+                        inclination,
+                        ascendingNode,
+                        verticalAmp,
+                        tumbleVel: new THREE.Vector3(
+                            this.randomRange(-0.22, 0.22),
+                            this.randomRange(-0.32, 0.32),
+                            this.randomRange(-0.14, 0.14)
+                        ),
+                        anchoredPosition: new THREE.Vector3(),
+                        anchoredQuaternion: new THREE.Quaternion()
+                    };
+
+                    // Compute initial orbital position & orientation
+                    this.computeOrbitalTransform(cardData, 0, cardGroup.position);
+                    cardGroup.rotation.set(
+                        this.randomRange(-0.4, 0.4),
+                        orbitAngle + Math.PI * 0.5,
+                        this.randomRange(-0.3, 0.3)
+                    );
+
+                    // Store back-reference for Raycaster lookup
+                    coreMesh.userData.card = cardData;
+                    frontFace.userData.card = cardData;
+                    backFace.userData.card = cardData;
+
+                    this.scene.add(cardGroup);
+                    this.cards.push(cardData);
+                }
+            }
+
+            computeOrbitalTransform(card, dt, targetVec) {
+                card.orbitAngle += card.angularSpeed * dt;
+                const a = card.orbitAngle;
+                const r = card.orbitRadius;
+
+                // Inclined 3D orbital ellipse around the singularity
+                const x0 = Math.cos(a) * r;
+                const z0 = Math.sin(a) * r;
+                const y0 = Math.sin(a * 2.0 + card.ascendingNode) * card.verticalAmp + x0 * Math.sin(card.inclination);
+
+                // Rotate by ascending node
+                const cosN = Math.cos(card.ascendingNode);
+                const sinN = Math.sin(card.ascendingNode);
+
+                targetVec.set(
+                    x0 * cosN - z0 * sinN,
+                    y0,
+                    x0 * sinN + z0 * cosN
+                );
+            }
+
+            initPostProcessing() {
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                const pr = Math.min(window.devicePixelRatio, 2);
+
+                this.renderTarget = new THREE.WebGLRenderTarget(w * pr, h * pr, {
+                    minFilter: THREE.LinearFilter,
+                    magFilter: THREE.LinearFilter,
+                    format: THREE.RGBAFormat
+                });
+
+                this.postScene = new THREE.Scene();
+                this.postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+                this.ruptureUniforms = {
+                    tDiffuse: { value: this.renderTarget.texture },
+                    uTime: { value: 0 },
+                    uRupture: { value: 0 },
+                    uPolarity: { value: 0 },
+                    uResolution: { value: new THREE.Vector2(w * pr, h * pr) }
+                };
+
+                const quadGeo = new THREE.PlaneGeometry(2, 2);
+                const quadMat = new THREE.ShaderMaterial({
+                    vertexShader: RupturePostVertexShader,
+                    fragmentShader: RupturePostFragmentShader,
+                    uniforms: this.ruptureUniforms,
+                    depthWrite: false,
+                    depthTest: false
+                });
+
+                this.postQuad = new THREE.Mesh(quadGeo, quadMat);
+                this.postScene.add(this.postQuad);
+            }
+
+            /**
+             * Triggers the 2.5 - 4.0 second Spacetime Chromatic Rupture
+             * Warps space, erupts in full spectral hues, and flips Void Polarity at peak
+             */
+            triggerSpacetimeRupture(customDuration) {
+                if (this.ruptureActive) return;
+                this.ruptureActive = true;
+                this.ruptureElapsed = 0.0;
+                this.ruptureDuration = customDuration || this.randomRange(2.6, 3.8);
+                this.polarityFlippedInCurrentRupture = false;
+
+                document.getElementById('rupture-banner').classList.remove('hidden');
+            }
+
+            updateSpacetimeRupture(dt, elapsedTime) {
+                if (!this.ruptureActive) {
+                    this.nextRuptureCountdown -= dt;
+                    if (this.nextRuptureCountdown <= 0) {
+                        this.triggerSpacetimeRupture();
+                    }
+                    document.getElementById('hud-rupture-timer').textContent = `${Math.max(0, this.nextRuptureCountdown).toFixed(1)}s`;
+                    return;
+                }
+
+                this.ruptureElapsed += dt;
+                const progress = Math.min(1.0, this.ruptureElapsed / this.ruptureDuration);
+
+                // Smooth non-linear bell envelope with high-frequency glitch tremors
+                const envelope = Math.sin(progress * Math.PI);
+                const tremor = 0.85 + 0.15 * Math.sin(elapsedTime * 38.0);
+                this.ruptureIntensity = Math.pow(envelope, 0.75) * tremor;
+
+                document.getElementById('hud-rupture-timer').textContent = `RUPTURE [${(this.ruptureDuration - this.ruptureElapsed).toFixed(1)}s]`;
+
+                // Flip Space Polarity at peak chromatic bend (progress >= 0.5)
+                if (progress >= 0.5 && !this.polarityFlippedInCurrentRupture) {
+                    this.polarityFlippedInCurrentRupture = true;
+                    this.polarity = this.polarity === 0 ? 1 : 0;
+                    this.applyPolarityTheme();
+                }
+
+                if (progress >= 1.0) {
+                    this.ruptureActive = false;
+                    this.ruptureIntensity = 0.0;
+                    this.nextRuptureCountdown = this.randomRange(15.0, 25.0);
+                    document.getElementById('rupture-banner').classList.add('hidden');
+                }
+            }
+
+            applyPolarityTheme() {
+                const isWhite = this.polarity === 1;
+                document.body.classList.toggle('polarity-white', isWhite);
+
+                const polarityLabel = document.getElementById('hud-polarity');
+                if (isWhite) {
+                    polarityLabel.textContent = '[ VOID: WHITE // #F4F4F6 ]';
+                    this.horizonMat.color.setHex(0x050508); // High-contrast obsidian event horizon in white space
+                    this.photonMat.color.setHex(0x6600ff);
+                    this.photonMat.blending = THREE.NormalBlending;
+                    this.dustMat.color.setHex(0x111118);
+                } else {
+                    polarityLabel.textContent = '[ VOID: BLACK // #030305 ]';
+                    this.horizonMat.color.setHex(0x000000);
+                    this.photonMat.color.setHex(0xffaa55);
+                    this.photonMat.blending = THREE.AdditiveBlending;
+                    this.dustMat.color.setHex(0xffffff);
+                }
+            }
+
+            /**
+             * 3-State Card Raycast Interaction Handler
+             * State 0 (ORBITING) -> Click 1 -> State 1 (ANCHORED/FROZEN)
+             * State 1 (ANCHORED) -> Click 2 -> State 2 (INSPECT/APPROACH CAMERA)
+             * State 2 (INSPECT)  -> Click 3 -> State 0 (RELEASE TO ORBIT)
+             */
+            handleCardClick(clickedCard) {
+                if (!clickedCard) {
+                    // Clicking empty space while a card is in State 2 (Inspect) releases it back to orbit
+                    if (this.inspectedCard) {
+                        this.setCardState(this.inspectedCard, 0);
+                        this.inspectedCard = null;
+                        this.updateTelemetryHUD(null);
+                    }
+                    return;
+                }
+
+                if (clickedCard.state === 0) {
+                    // 1st Click: Freeze orbital velocity in place
+                    this.setCardState(clickedCard, 1);
+                } else if (clickedCard.state === 1) {
+                    // 2nd Click: Smoothly approach user's camera for inspection
+                    if (this.inspectedCard && this.inspectedCard !== clickedCard) {
+                        this.setCardState(this.inspectedCard, 0);
+                    }
+                    this.setCardState(clickedCard, 2);
+                    this.inspectedCard = clickedCard;
+                } else if (clickedCard.state === 2) {
+                    // 3rd Click: Release back into Keplerian orbit
+                    this.setCardState(clickedCard, 0);
+                    if (this.inspectedCard === clickedCard) {
+                        this.inspectedCard = null;
+                    }
+                }
+
+                this.updateTelemetryHUD(clickedCard);
+            }
+
+            setCardState(card, newState) {
+                card.state = newState;
+
+                if (newState === 1) {
+                    // Lock current world coordinates & stabilize upright orientation facing observer
+                    card.anchoredPosition.copy(card.group.position);
+                    const lookMat = new THREE.Matrix4().lookAt(this.camera.position, card.group.position, new THREE.Vector3(0, 1, 0));
+                    card.anchoredQuaternion.setFromRotationMatrix(lookMat);
+                    card.borderMat.color.setHex(0x00f0ff);
+                    card.borderMat.opacity = 0.85;
+                } else if (newState === 2) {
+                    card.borderMat.color.setHex(0xff0066);
+                    card.borderMat.opacity = 0.95;
+                } else {
+                    // Re-sync orbital angle & radius to current position so release is seamless
+                    card.borderMat.opacity = 0.0;
+                }
+            }
+
+            updateTelemetryHUD(card) {
+                const panel = document.getElementById('card-telemetry');
+                const crosshair = document.getElementById('crosshair');
+
+                if (!card) {
+                    panel.classList.add('opacity-0', '-translate-x-4');
+                    crosshair.classList.remove('hovering', 'locked');
+                    return;
+                }
+
+                panel.classList.remove('opacity-0', '-translate-x-4');
+                document.getElementById('card-id').textContent = card.id;
+                document.getElementById('card-type').textContent = card.isVideo ? '60FPS KINETIC STREAM' : 'HIGH-CONTRAST ARCHIVE';
+                document.getElementById('card-aspect').textContent = card.aspectLabel;
+                document.getElementById('card-radius').textContent = `${card.orbitRadius.toFixed(1)} AU`;
+                document.getElementById('card-cdn').textContent = card.cloudinaryPath;
+
+                const stateEl = document.getElementById('card-state');
+                const hintEl = document.getElementById('card-action-hint');
+
+                if (card.state === 0) {
+                    stateEl.textContent = '0 // ORBITING SINGULARITY';
+                    stateEl.className = 'font-semibold text-emerald-400';
+                    hintEl.textContent = '[1st CLICK]: ANCHOR & FREEZE DRIFT';
+                } else if (card.state === 1) {
+                    stateEl.textContent = '1 // ANCHORED IN SPACE';
+                    stateEl.className = 'font-semibold text-cyan-400';
+                    hintEl.textContent = '[2nd CLICK]: APPROACH VIEWPORT';
+                } else {
+                    stateEl.textContent = '2 // PROXIMITY INSPECT';
+                    stateEl.className = 'font-semibold text-rose-400';
+                    hintEl.textContent = '[3rd CLICK]: RELEASE TO ORBIT';
+                }
+            }
+
+            initControlsAndEvents() {
+                const domEl = this.renderer.domElement;
+
+                // Keyboard 6-DOF Zero-G Input
+                window.addEventListener('keydown', (e) => {
+                    switch (e.code) {
+                        case 'KeyW': case 'ArrowUp': this.moveInput.forward = 1; break;
+                        case 'KeyS': case 'ArrowDown': this.moveInput.forward = -1; break;
+                        case 'KeyD': case 'ArrowRight': this.moveInput.right = 1; break;
+                        case 'KeyA': case 'ArrowLeft': this.moveInput.right = -1; break;
+                        case 'Space': case 'KeyE': this.moveInput.up = 1; break;
+                        case 'ShiftLeft': case 'ShiftRight': case 'KeyQ': this.moveInput.up = -1; break;
+                        case 'KeyR': this.triggerSpacetimeRupture(); break;
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    switch (e.code) {
+                        case 'KeyW': case 'ArrowUp': if (this.moveInput.forward > 0) this.moveInput.forward = 0; break;
+                        case 'KeyS': case 'ArrowDown': if (this.moveInput.forward < 0) this.moveInput.forward = 0; break;
+                        case 'KeyD': case 'ArrowRight': if (this.moveInput.right > 0) this.moveInput.right = 0; break;
+                        case 'KeyA': case 'ArrowLeft': if (this.moveInput.right < 0) this.moveInput.right = 0; break;
+                        case 'Space': case 'KeyE': if (this.moveInput.up > 0) this.moveInput.up = 0; break;
+                        case 'ShiftLeft': case 'ShiftRight': case 'KeyQ': if (this.moveInput.up < 0) this.moveInput.up = 0; break;
+                    }
+                });
+
+                // Mouse Drag / PointerLock Look + Raycast Click Detection
+                domEl.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    this.isDraggingLook = true;
+                    this.pointerDownPos.x = e.clientX;
+                    this.pointerDownPos.y = e.clientY;
+                    this.dragDistance = 0;
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    if (this.isPointerLocked) {
+                        this.targetYaw -= e.movementX * 0.0022;
+                        this.targetPitch = Math.max(-1.48, Math.min(1.48, this.targetPitch - e.movementY * 0.0022));
+                        this.mouseNDC.set(0, 0);
+                    } else {
+                        // Update NDC for cursor raycasting when not pointer-locked
+                        this.mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+                        this.mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+                        if (this.isDraggingLook) {
+                            const dx = e.clientX - this.pointerDownPos.x;
+                            const dy = e.clientY - this.pointerDownPos.y;
+                            this.dragDistance += Math.hypot(e.movementX, e.movementY);
+                            this.targetYaw -= e.movementX * 0.003;
+                            this.targetPitch = Math.max(-1.48, Math.min(1.48, this.targetPitch - e.movementY * 0.003));
+                        }
+                    }
+                });
+
+                window.addEventListener('mouseup', (e) => {
+                    if (e.button !== 0) return;
+                    this.isDraggingLook = false;
+
+                    // If user clicked cleanly (not dragging camera), perform 3-State Card Raycast
+                    if (this.dragDistance < 6 && e.target === domEl) {
+                        this.performRaycastSelection(true);
+                    }
+                });
+
+                // Double-click canvas to toggle immersive PointerLock ghost mode
+                domEl.addEventListener('dblclick', () => {
+                    if (!this.isPointerLocked && domEl.requestPointerLock) {
+                        domEl.requestPointerLock();
+                    } else if (document.exitPointerLock) {
+                        document.exitPointerLock();
+                    }
+                });
+
+                document.addEventListener('pointerlockchange', () => {
+                    this.isPointerLocked = document.pointerLockElement === domEl;
+                    if (this.isPointerLocked) {
+                        this.mouseNDC.set(0, 0);
+                    }
+                });
+
+                // Mouse Wheel Forward/Backward Zero-G Impulse Thrust
+                domEl.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const forwardDir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                    this.velocity.addScaledVector(forwardDir, -e.deltaY * 0.018);
+                }, { passive: false });
+
+                // Touch Support for Mobile/Tablet Zero-G Look & Tap
+                let lastTouchX = 0, lastTouchY = 0;
+                domEl.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 1) {
+                        lastTouchX = e.touches[0].clientX;
+                        lastTouchY = e.touches[0].clientY;
+                        this.dragDistance = 0;
+                        this.mouseNDC.x = (lastTouchX / window.innerWidth) * 2 - 1;
+                        this.mouseNDC.y = -(lastTouchY / window.innerHeight) * 2 + 1;
+                    }
+                }, { passive: true });
+
+                domEl.addEventListener('touchmove', (e) => {
+                    if (e.touches.length === 1) {
+                        const dx = e.touches[0].clientX - lastTouchX;
+                        const dy = e.touches[0].clientY - lastTouchY;
+                        this.dragDistance += Math.hypot(dx, dy);
+                        this.targetYaw -= dx * 0.004;
+                        this.targetPitch = Math.max(-1.48, Math.min(1.48, this.targetPitch - dy * 0.004));
+                        lastTouchX = e.touches[0].clientX;
+                        lastTouchY = e.touches[0].clientY;
+                    }
+                }, { passive: true });
+
+                domEl.addEventListener('touchend', () => {
+                    if (this.dragDistance < 10) {
+                        this.performRaycastSelection(true);
+                    }
+                });
+
+                // HUD Buttons
+                document.getElementById('btn-trigger-rupture').addEventListener('click', () => {
+                    this.triggerSpacetimeRupture();
+                });
+
+                document.getElementById('btn-reset-orbits').addEventListener('click', () => {
+                    this.cards.forEach(c => this.setCardState(c, 0));
+                    this.inspectedCard = null;
+                    this.updateTelemetryHUD(null);
+                });
+
+                const archModal = document.getElementById('arch-modal');
+                document.getElementById('btn-arch-spec').addEventListener('click', () => {
+                    archModal.classList.remove('hidden');
+                    archModal.classList.add('flex');
+                });
+                document.getElementById('btn-close-modal').addEventListener('click', () => {
+                    archModal.classList.add('hidden');
+                    archModal.classList.remove('flex');
+                });
+
+                // Responsive Window Resize
+                window.addEventListener('resize', () => {
+                    const w = window.innerWidth;
+                    const h = window.innerHeight;
+                    const pr = Math.min(window.devicePixelRatio, 2);
+
+                    this.camera.aspect = w / h;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(w, h);
+                    this.renderTarget.setSize(w * pr, h * pr);
+                    this.ruptureUniforms.uResolution.value.set(w * pr, h * pr);
+                });
+            }
+
+            performRaycastSelection(isClick = false) {
+                this.raycaster.setFromCamera(this.mouseNDC, this.camera);
+                const interactableMeshes = [];
+                for (let i = 0; i < this.cards.length; i++) {
+                    interactableMeshes.push(this.cards[i].coreMesh, this.cards[i].frontFace, this.cards[i].backFace);
+                }
+
+                const hits = this.raycaster.intersectObjects(interactableMeshes, false);
+                const hitCard = hits.length > 0 ? hits[0].object.userData.card : null;
+
+                const crosshair = document.getElementById('crosshair');
+                if (hitCard) {
+                    crosshair.classList.add('hovering');
+                    if (this.hoveredCard !== hitCard) {
+                        if (this.hoveredCard && this.hoveredCard.state === 0) {
+                            this.hoveredCard.borderMat.opacity = 0.0;
+                        }
+                        this.hoveredCard = hitCard;
+                        if (hitCard.state === 0) {
+                            hitCard.borderMat.color.setHex(0xffffff);
+                            hitCard.borderMat.opacity = 0.45;
+                        }
+                    }
+                    if (!this.inspectedCard) {
+                        this.updateTelemetryHUD(hitCard);
+                    }
+                } else {
+                    crosshair.classList.remove('hovering');
+                    if (this.hoveredCard && this.hoveredCard.state === 0) {
+                        this.hoveredCard.borderMat.opacity = 0.0;
+                    }
+                    this.hoveredCard = null;
+                    if (!this.inspectedCard && !isClick) {
+                        this.updateTelemetryHUD(null);
+                    }
+                }
+
+                if (isClick) {
+                    this.handleCardClick(hitCard);
+                }
+            }
+
+            updateGhostNavigation(dt) {
+                // Smooth rotational damping
+                this.cameraYaw += (this.targetYaw - this.cameraYaw) * Math.min(1, dt * 12);
+                this.cameraPitch += (this.targetPitch - this.cameraPitch) * Math.min(1, dt * 12);
+                this.camera.rotation.set(this.cameraPitch, this.cameraYaw, 0, 'YXZ');
+
+                // Compute 6-DOF thrust vectors relative to camera look orientation
+                const thrustAccel = 46.0;
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+                const up = new THREE.Vector3(0, 1, 0);
+
+                if (this.moveInput.forward !== 0) {
+                    this.velocity.addScaledVector(forward, this.moveInput.forward * thrustAccel * dt);
+                }
+                if (this.moveInput.right !== 0) {
+                    this.velocity.addScaledVector(right, this.moveInput.right * thrustAccel * dt);
+                }
+                if (this.moveInput.up !== 0) {
+                    this.velocity.addScaledVector(up, this.moveInput.up * thrustAccel * dt);
+                }
+
+                // Zero-G inertial damping
+                const damping = Math.exp(-3.4 * dt);
+                this.velocity.multiplyScalar(damping);
+                this.camera.position.addScaledVector(this.velocity, dt);
+
+                // Prevent camera from flying inside the black hole event horizon sphere (r < 9.5)
+                const distFromSingularity = this.camera.position.length();
+                if (distFromSingularity < 9.5) {
+                    this.camera.position.normalize().multiplyScalar(9.5);
+                }
+
+                // Update HUD Telemetry
+                document.getElementById('hud-vel').textContent = this.velocity.length().toFixed(2);
+                document.getElementById('hud-pos').textContent = `${Math.round(this.camera.position.x)}, ${Math.round(this.camera.position.y)}, ${Math.round(this.camera.position.z)}`;
+            }
+
+            updateMediaMonoliths(dt) {
+                const targetPos = new THREE.Vector3();
+                const targetQuat = new THREE.Quaternion();
+                const lookMatrix = new THREE.Matrix4();
+                const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+                const vFovRad = THREE.MathUtils.degToRad(this.camera.fov);
+
+                for (let i = 0; i < this.cards.length; i++) {
+                    const card = this.cards[i];
+
+                    if (card.state === 0) {
+                        // STATE 0: Keplerian Orbit & Gentle Zero-G Tumble
+                        this.computeOrbitalTransform(card, dt, targetPos);
+                        card.group.position.lerp(targetPos, Math.min(1, dt * 6.0));
+
+                        card.group.rotation.x += card.tumbleVel.x * dt;
+                        card.group.rotation.y += (card.angularSpeed * 0.8 + card.tumbleVel.y) * dt;
+                        card.group.rotation.z += card.tumbleVel.z * dt;
+                    } else if (card.state === 1) {
+                        // STATE 1: Anchored / Frozen in Place & Stabilized Facing Observer
+                        card.group.position.lerp(card.anchoredPosition, Math.min(1, dt * 8.0));
+                        lookMatrix.lookAt(this.camera.position, card.group.position, new THREE.Vector3(0, 1, 0));
+                        targetQuat.setFromRotationMatrix(lookMatrix);
+                        card.group.quaternion.slerp(targetQuat, Math.min(1, dt * 6.5));
+                    } else if (card.state === 2) {
+                        // STATE 2: Inspect / Approach Camera (Takes up ~50% of viewport height in 3D space)
+                        const desiredViewportFraction = 0.50;
+                        const inspectDistance = Math.max(
+                            4.5,
+                            (card.height / desiredViewportFraction) / (2.0 * Math.tan(vFovRad * 0.5))
+                        );
+
+                        const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                        targetPos.copy(this.camera.position).addScaledVector(camForward, inspectDistance);
+
+                        card.group.position.lerp(targetPos, Math.min(1, dt * 7.5));
+
+                        lookMatrix.lookAt(this.camera.position, card.group.position, cameraUp);
+                        targetQuat.setFromRotationMatrix(lookMatrix);
+                        card.group.quaternion.slerp(targetQuat, Math.min(1, dt * 9.0));
+                    }
+                }
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+
+                const dt = Math.min(this.clock.getDelta(), 0.1);
+                const elapsedTime = this.clock.getElapsedTime();
+
+                // FPS Telemetry
+                this.frameCount++;
+                this.fpsTimer += dt;
+                if (this.fpsTimer >= 0.5) {
+                    document.getElementById('hud-fps').textContent = Math.round(this.frameCount / this.fpsTimer);
+                    this.frameCount = 0;
+                    this.fpsTimer = 0;
+                }
+
+                // 1. Update Spacetime Chromatic Rupture & Void Polarity Lerp
+                this.updateSpacetimeRupture(dt, elapsedTime);
+                this.polarityLerp += (this.polarity - this.polarityLerp) * Math.min(1, dt * 6.0);
+                this.currentVoidColor.lerpColors(this.blackVoidColor, this.whiteVoidColor, this.polarityLerp);
+                this.scene.background.copy(this.currentVoidColor);
+                this.scene.fog.color.copy(this.currentVoidColor);
+
+                // 2. Update Central Black Hole Accretion Shaders & Cosmic Dust
+                this.accretionUniforms.uTime.value = elapsedTime;
+                this.accretionUniforms.uPolarity.value = this.polarityLerp;
+                this.accretionUniforms.uRupture.value = this.ruptureIntensity;
+                this.dustPoints.rotation.y = elapsedTime * 0.018;
+
+                // 3. Update Kinetic Video Textures
+                this.mediaFactory.update(elapsedTime);
+
+                // 4. Update 6-DOF Ghost Navigation & Monolith States
+                this.updateGhostNavigation(dt);
+                this.updateMediaMonoliths(dt);
+                this.performRaycastSelection(false);
+
+                // 5. Render Scene into Offscreen Target -> Fullscreen Chromatic Rupture Shader Pass
+                this.ruptureUniforms.uTime.value = elapsedTime;
+                this.ruptureUniforms.uRupture.value = this.ruptureIntensity;
+                this.ruptureUniforms.uPolarity.value = this.polarityLerp;
+
+                this.renderer.setRenderTarget(this.renderTarget);
+                this.renderer.render(this.scene, this.camera);
+                this.renderer.setRenderTarget(null);
+                this.renderer.render(this.postScene, this.postCamera);
+            }
+        }
+
+        window.onload = function () {
+            new OrbitalSpaceGallery();
+        };
+    </script>
+</body>
+</html>
